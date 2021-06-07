@@ -6,14 +6,83 @@ plotTranscriptStructure <- function(exons_df, limits = NA, connect_exons = TRUE,
     dplyr::filter_(~feature_type == "exon") %>%
     dplyr::arrange_('transcript_id', 'start') %>%
     dplyr::filter(row_number() == 1)
-
+  
   #Create a plot of transcript structure
   plot = ggplot(exons_df) + geom_blank()
   if(connect_exons){ #Print line connecting exons
     plot = plot + geom_line(aes_(x = ~start, y = ~transcript_rank, group = ~transcript_rank, color = ~feature_type))
   }
   plot = plot + 
-    geom_rect(aes_(xmin = ~start, 
+    geom_rect(data=. %>% dplyr::filter(feature_type=="exon"),aes_(xmin = ~start, 
+                                                                  xmax = ~end, 
+                                                                  ymax = ~transcript_rank + 0.125, 
+                                                                  ymin = ~transcript_rank - 0.125, 
+                                                                  fill = ~feature_type)) + 
+    geom_rect(data=. %>% dplyr::filter(feature_type!="exon"),aes_(xmin = ~start, 
+                                                                  xmax = ~end, 
+                                                                  ymax = ~transcript_rank + 0.25, 
+                                                                  ymin = ~transcript_rank - 0.25, 
+                                                                  fill = ~feature_type)) + 
+    theme_light() +
+    theme(plot.margin=unit(c(0,1,1,1),"line"), 
+          axis.title.y = element_blank(),
+          axis.text.y = element_blank(),
+          axis.ticks.y = element_blank(),
+          legend.position="none",
+          panel.grid.major = element_blank(),
+          panel.grid.minor = element_blank(),
+          strip.text.y = element_text(colour = "grey10"),
+          strip.background = element_rect(fill = "grey85")) +
+    xlab(xlabel) +
+    facet_grid(type~.) +
+    scale_y_continuous(expand = c(0.2,0.15)) +
+    scale_fill_manual(values = c("black","black")) + 
+    scale_colour_manual(values = c("black","black"))
+  if(all(!is.na(limits))){
+    plot = plot + scale_x_continuous(expand = c(0,0)) +
+      coord_cartesian(xlim = limits)
+  }
+  if(transcript_label){
+    plot = plot + geom_text(aes_(x = ~start, 
+                                 y = ~transcript_rank + 0.30, 
+                                 label = ~transcript_label), 
+                            data = transcript_annot, hjust = 0, vjust = 0, size = 4)
+    
+  }
+  return(plot)
+}
+
+plotTranscriptStructureBed <- function(exons_df, limits = NA, connect_exons = TRUE,  
+                                    xlabel = "Distance from gene start (bp)", transcript_label = TRUE){
+  
+  #Extract the position for plotting transcript name
+  transcript_annot = dplyr::group_by_(exons_df, ~transcript_id) %>% 
+    dplyr::filter_(~feature_type == "exon") %>%
+    dplyr::arrange_('transcript_id', 'start') %>%
+    dplyr::filter(row_number() == 1)
+
+  # return(transcript_annot)
+  
+  bed_annot = dplyr::group_by_(exons_df, ~transcript_id) %>% 
+    dplyr::filter_(~feature_type == "bed") %>%
+    dplyr::arrange_('transcript_id', 'start') %>%
+    dplyr::filter(row_number() == 1)
+  
+  # return(bed_annot)
+  
+  #Create a plot of transcript structure
+  plot = ggplot(exons_df) + geom_blank()
+  if(connect_exons){ #Print line connecting exons
+    # plot = plot + geom_line(aes_(x = ~start, y = ~transcript_rank, group = ~transcript_rank, color = ~feature_type))
+    plot = plot + geom_line(data=. %>% filter(feature_type!="bed"),aes(x = start, y = transcript_rank, group = transcript_rank), color = "black")
+  }
+  plot = plot + 
+    geom_rect(data=. %>% dplyr::filter(feature_type=="exon"),aes_(xmin = ~start, 
+                   xmax = ~end, 
+                   ymax = ~transcript_rank + 0.125, 
+                   ymin = ~transcript_rank - 0.125, 
+                   fill = ~feature_type)) + 
+    geom_rect(data=. %>% dplyr::filter(feature_type!="exon"),aes_(xmin = ~start, 
                    xmax = ~end, 
                    ymax = ~transcript_rank + 0.25, 
                    ymin = ~transcript_rank - 0.25, 
@@ -31,8 +100,8 @@ plotTranscriptStructure <- function(exons_df, limits = NA, connect_exons = TRUE,
     xlab(xlabel) +
     facet_grid(type~.) +
     scale_y_continuous(expand = c(0.2,0.15)) +
-    scale_fill_manual(values = c("#2c7bb6","#abd9e9")) + 
-    scale_colour_manual(values = c("#2c7bb6","#abd9e9"))
+    scale_fill_manual(values = c("#347deb","black","black")) + 
+    scale_colour_manual(values = c("#347deb","black","black"))
   if(all(!is.na(limits))){
     plot = plot + scale_x_continuous(expand = c(0,0)) +
       coord_cartesian(xlim = limits)
@@ -41,14 +110,19 @@ plotTranscriptStructure <- function(exons_df, limits = NA, connect_exons = TRUE,
     plot = plot + geom_text(aes_(x = ~start, 
                                  y = ~transcript_rank + 0.30, 
                                  label = ~transcript_label), 
-                            data = transcript_annot, hjust = 0, vjust = 0, size = 4)
-
+                            data = transcript_annot, hjust = 0, vjust = 0, size = 2)
+  
+    plot = plot + geom_text(aes(x =  0, 
+                               y = transcript_rank, 
+                                label = transcript_id), 
+                            data = bed_annot, hjust = 0, vjust = 0, size = 2)
   }
   return(plot)
 }
 
 makeCoveragePlot <- function(coverage_df, limits, alpha, fill_palette, coverage_type){
   #Plot coverage over a region
+  coverage_df<- coverage_df %>% mutate(bottom=coverage-sd,top=coverage+sd)
   coverage_plot = ggplot(coverage_df, aes_(~bins, ~coverage, group = ~sample_id, alpha = ~alpha)) + 
     geom_blank() +
     theme_light()
@@ -63,6 +137,10 @@ makeCoveragePlot <- function(coverage_df, limits, alpha, fill_palette, coverage_
     coverage_plot = coverage_plot + 
       geom_area(aes_(fill = ~colour_group), alpha = alpha, position = "identity") +
       geom_line(aes_(colour = ~colour_group), alpha = alpha, position = "identity") 
+  } else if (coverage_type == "line_sd"){
+      coverage_plot = coverage_plot + 
+      geom_line(aes_(colour = ~colour_group), alpha = alpha, position = "identity")+
+      geom_ribbon(aes(ymin=coverage-sd,ymax=coverage+sd, fill=colour_group),alpha=alpha/2, position ="identity")
   } else{
     stop("Coverage type not supported.")
   }

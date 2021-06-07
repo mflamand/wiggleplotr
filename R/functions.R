@@ -64,25 +64,40 @@ prepareTranscriptAnnotations <- function(transcript_annotations){
   return(transcript_annotations)
 }
 
-prepareTranscriptStructureForPlotting <- function(exon_ranges, cds_ranges, transcript_annotations){
+prepareTranscriptStructureForPlotting <- function(exon_ranges, cds_ranges, transcript_annotations, bed_ranges){
   #Combine exon_ranges and cds_ranges into a single data.frame that also contains transcript rank
+  
+  #convert BED ranges into a data.frame
+  
+  bed_df <- purrr::map_df(bed_ranges, data.frame, .id = "transcript_id")
+  bed_df <- bed_df %>% dplyr::mutate(transcript_rank = as.numeric(factor(bed_df$transcript_id)), type = "")
+  transcript_rank_bed = nrow(unique(bed_df["transcript_rank"]))
   
   #Convert exon ranges into data.frame and add transcript rank
   exons_df = purrr::map_df(exon_ranges, data.frame, .id = "transcript_id")
-  exons_df = dplyr::mutate(exons_df, transcript_rank = as.numeric(factor(exons_df$transcript_id)), type = "")
+  exons_df = dplyr::mutate(exons_df, transcript_rank = as.numeric(factor(exons_df$transcript_id))+transcript_rank_bed, type = "")
+  
   transcript_rank = unique(exons_df[,c("transcript_id", "transcript_rank", "type")])
   
   #Convert CDS ranges into a data.frame
   cds_df = purrr::map_df(cds_ranges, data.frame, .id = "transcript_id")
   cds_df = dplyr::left_join(cds_df, transcript_rank, by = "transcript_id") #Add matching transcript rank
   
+
+  
   #Join exons and cdss together
   exons_df = dplyr::mutate(exons_df, feature_type = "exon")
   cds_df = dplyr::mutate(cds_df, feature_type = "cds")
   transcript_struct = rbind(exons_df, cds_df)
-
+  if(!is.null(bed_df)){
+  bed_df = dplyr::mutate(bed_df, feature_type = "bed")
+  transcript_struct = rbind(transcript_struct, bed_df)
+  }
   #Add transcript label to transcript structure
   transcript_struct = dplyr::left_join(transcript_struct, transcript_annotations, by = "transcript_id")
+
+  
+  
   return(transcript_struct)
 }
 
@@ -126,8 +141,10 @@ pasteFactors <- function(factor1, factor2){
 # Calculate mean coverage within each track_id and colour_group
 meanCoverage <- function(coverage_df){
   coverage_df = dplyr::group_by_(coverage_df, "track_id", "colour_group", "bins") %>% 
-    dplyr::summarise_(.dots = stats::setNames(list(~mean(coverage)), c("coverage"))) %>%
-    dplyr::ungroup() %>% # It's important to do ungroup before mutate, or you get unexpected factor results
+    # dplyr::summarise_(.dots = stats::setNames(list(~mean(coverage)), c("coverage"))) %>%
+     dplyr::summarise(sd=sd(coverage),cov=mean(coverage)) %>%
+    dplyr::mutate(coverage=cov) %>% dplyr::select(-cov) %>% 
+     dplyr::ungroup() %>% # It's important to do ungroup before mutate, or you get unexpected factor results
     dplyr::mutate_(.dots = stats::setNames(list(~pasteFactors(as.factor(track_id), as.factor(colour_group))),c("sample_id")) ) #Construct a new sample id for mean vector
   
   return(coverage_df)

@@ -22,7 +22,7 @@
 plotTranscripts <- function(exons, cdss = NULL, transcript_annotations = NULL, 
                             rescale_introns = TRUE, new_intron_length = 50, 
                             flanking_length = c(50,50), connect_exons = TRUE, 
-                            transcript_label = TRUE, region_coords = NULL){
+                            transcript_label = TRUE, region_coords = NULL,bed_sites=NULL){
   
   #IF cdss is not specified then use exons instead on cdss
   if(is.null(cdss)){
@@ -36,6 +36,11 @@ plotTranscripts <- function(exons, cdss = NULL, transcript_annotations = NULL,
   #Join exons together
   joint_exons = joinExons(exons)
   
+  if(exists("bed_sites")){
+    bed=lapply(bed_sites, subsetByOverlaps, joint_exons )
+  }
+  
+
   #Extract chromosome name
   chromosome_name = as.vector(GenomicRanges::seqnames(joint_exons)[1])
   
@@ -50,33 +55,60 @@ plotTranscripts <- function(exons, cdss = NULL, transcript_annotations = NULL,
   #Make sure that flanking_length is a vector of two elements
   assertthat::assert_that(length(flanking_length) == 2) 
 
-  #Rescale introns
-  if (rescale_introns){
+  #Shorten introns and translate exons into the new introns
+  if (rescale_introns && exists("bed")){
+    tx_annotations = rescaleIntronsBed(exons, cdss, joint_exons, new_intron_length = new_intron_length, flanking_length,bed)
+    xlabel = "Distance from region start (bp)"
+  }else if (rescale_introns){
     tx_annotations = rescaleIntrons(exons, cdss, joint_exons, new_intron_length = new_intron_length, flanking_length)
     xlabel = "Distance from region start (bp)"
-  } else {
+  }else if (exists("bed")){
+    #Need to calculate joint intron coordinates for transcript annotations
+    old_introns = intronsFromJointExonRanges(GenomicRanges::ranges(joint_exons), flanking_length = flanking_length)
+    tx_annotations = list(exon_ranges = lapply(exons, GenomicRanges::ranges), cds_ranges = lapply(cdss, GenomicRanges::ranges),
+                          bed_ranges = lapply(bed,GenomicRanges::ranges), 
+                          old_introns = old_introns, new_introns = old_introns)
+    xlabel = paste("Chromosome", chromosome_name, "position (bp)")
+  } else{ #Do not rescale transcript annotationn
+    #Need to calculate joint intron coordinates for transcript annotations
     old_introns = intronsFromJointExonRanges(GenomicRanges::ranges(joint_exons), flanking_length = flanking_length)
     tx_annotations = list(exon_ranges = lapply(exons, GenomicRanges::ranges), cds_ranges = lapply(cdss, GenomicRanges::ranges),
                           old_introns = old_introns, new_introns = old_introns)
     
+    #Make a label for gene structure plot
     xlabel = paste("Chromosome", chromosome_name, "position (bp)")
   }
   
   #If transcript annotations are not supplied then construct them manually from the GRanges list
   if(is.null(transcript_annotations)){
+    
     plotting_annotations = dplyr::tibble(transcript_id = names(exons),
-                                             strand = extractStrandsFromGrangesList(exons)) %>%
-      prepareTranscriptAnnotations()
+                                         strand = extractStrandsFromGrangesList(exons))
+    
+    if(!is.null(bed)){
+      bed_annotations = dplyr::tibble(transcript_id = names(bed),strand = extractStrandsFromGrangesList(bed))
+      plotting_annotations<- rbind(plotting_annotations,bed_annotations)
+    }
+    
+    plotting_annotations<-plotting_annotations%>% prepareTranscriptAnnotations()
+    
   } else{
     plotting_annotations = prepareTranscriptAnnotations(transcript_annotations)
   }
-  
+
   #Plot transcript structures
   limits = c( min(IRanges::start(tx_annotations$new_introns)), max(IRanges::end(tx_annotations$new_introns)))
   structure = prepareTranscriptStructureForPlotting(tx_annotations$exon_ranges, 
-                                               tx_annotations$cds_ranges, plotting_annotations)
-  plot = plotTranscriptStructure(structure, limits, connect_exons = connect_exons, xlabel = xlabel, 
+                                               tx_annotations$cds_ranges, plotting_annotations,tx_annotations$bed_ranges)
+
+  
+  if(!is.null(bed_sites)){
+     plot = plotTranscriptStructureBed(structure, limits, connect_exons = connect_exons, xlabel = xlabel, 
+                                   transcript_label = transcript_label)
+  }else{
+    plot = plotTranscriptStructure(structure, limits, connect_exons = connect_exons, xlabel = xlabel, 
                                  transcript_label = transcript_label)
+  }
   return(plot)
 }
 
@@ -146,7 +178,7 @@ plotCoverage <- function(exons, cdss = NULL, transcript_annotations = NULL, trac
                         plot_fraction = 0.1, heights = c(0.75, 0.25), alpha = 1,
                         fill_palette = c("#a1dab4","#41b6c4","#225ea8"), mean_only = TRUE, 
                         connect_exons = TRUE, transcript_label = TRUE, return_subplots_list = FALSE,
-                        region_coords = NULL, coverage_type = "area"){
+                        region_coords = NULL, coverage_type = "area", bed_sites=NULL){
   
   #IF cdss is not specified then use exons instead on cdss
   if(is.null(cdss)){
@@ -188,6 +220,12 @@ plotCoverage <- function(exons, cdss = NULL, transcript_annotations = NULL, trac
   #Find the start and end cooridinates of the whole region spanning the gene
   joint_exons = joinExons(exons)
   
+  if(exists("bed_sites")){
+    bed=lapply(bed_sites, subsetByOverlaps, joint_exons )
+  }
+  
+  
+  
   #If region_coords is specificed, then ignore the flanking_length attrbute and compute
   # flanking_length form region_coords
   if(!is.null(region_coords)){
@@ -211,14 +249,20 @@ plotCoverage <- function(exons, cdss = NULL, transcript_annotations = NULL, trac
   coverage_list = lapply(sample_list, readCoverageFromBigWig, gene_range)
 
   #Shorten introns and translate exons into the new introns
-  if(rescale_introns){
-    #Recale transcript annotations
-    tx_annotations = rescaleIntrons(exons, cdss, joint_exons, 
-                                    new_intron_length = new_intron_length, flanking_length = flanking_length)
-    #Make a label for gene structure plot
+  if (rescale_introns && exists("bed")){
+    tx_annotations = rescaleIntronsBed(exons, cdss, joint_exons, new_intron_length = new_intron_length, flanking_length,bed)
     xlabel = "Distance from region start (bp)"
-  }
-  else{ #Do not rescale transcript annotationn
+  }else if (rescale_introns){
+    tx_annotations = rescaleIntrons(exons, cdss, joint_exons, new_intron_length = new_intron_length, flanking_length)
+    xlabel = "Distance from region start (bp)"
+  }else if (exists("bed")){
+    #Need to calculate joint intron coordinates for transcript annotations
+    old_introns = intronsFromJointExonRanges(GenomicRanges::ranges(joint_exons), flanking_length = flanking_length)
+    tx_annotations = list(exon_ranges = lapply(exons, GenomicRanges::ranges), cds_ranges = lapply(cdss, GenomicRanges::ranges),
+                          bed_ranges = lapply(bed,GenomicRanges::ranges), 
+                          old_introns = old_introns, new_introns = old_introns)
+    xlabel = paste("Chromosome", chromosome_name, "position (bp)")
+  } else{ #Do not rescale transcript annotationn
     #Need to calculate joint intron coordinates for transcript annotations
     old_introns = intronsFromJointExonRanges(GenomicRanges::ranges(joint_exons), flanking_length = flanking_length)
     tx_annotations = list(exon_ranges = lapply(exons, GenomicRanges::ranges), cds_ranges = lapply(cdss, GenomicRanges::ranges),
@@ -227,6 +271,8 @@ plotCoverage <- function(exons, cdss = NULL, transcript_annotations = NULL, trac
     #Make a label for gene structure plot
     xlabel = paste("Chromosome", chromosome_name, "position (bp)")
   }
+  
+
   #Shrink intron coverage and convert coverage vectors into data frames
   coverage_list = lapply(coverage_list, shrinkIntronsCoverage, tx_annotations$old_introns, tx_annotations$new_introns)
 
@@ -244,12 +290,24 @@ plotCoverage <- function(exons, cdss = NULL, transcript_annotations = NULL, trac
   #Calculate mean coverage within each track and colour group
   if(mean_only){  coverage_df = meanCoverage(coverage_df) }
   
+  # return(coverage_df)
+  
   #Make plots
   #Construct transcript structure data.frame from ranges lists
   limits = c( min(IRanges::start(tx_annotations$new_introns)), max(IRanges::end(tx_annotations$new_introns)))
+  # transcript_struct = prepareTranscriptStructureForPlotting(tx_annotations$exon_ranges, 
+  #                      tx_annotations$cds_ranges, plotting_annotations)
+  # 
   transcript_struct = prepareTranscriptStructureForPlotting(tx_annotations$exon_ranges, 
-                       tx_annotations$cds_ranges, plotting_annotations)
-  tx_structure = plotTranscriptStructure(transcript_struct, limits, connect_exons, xlabel, transcript_label)
+                                                    tx_annotations$cds_ranges, plotting_annotations,tx_annotations$bed_ranges)
+  # return(list(tx_annotations,transcript_struct))
+  if(!is.null(bed_sites)){
+    tx_structure = plotTranscriptStructureBed(transcript_struct, limits, connect_exons = connect_exons, xlabel = xlabel, 
+                                      transcript_label = transcript_label)
+  }else{
+    tx_structure = plotTranscriptStructure(transcript_struct, limits, connect_exons = connect_exons, xlabel = xlabel, 
+                                   transcript_label = transcript_label)
+  }
   
   coverage_plot = makeCoveragePlot(coverage_df, limits, alpha, fill_palette, coverage_type)
   

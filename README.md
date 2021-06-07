@@ -2,23 +2,25 @@
 # _wiggleplotr_
 _wiggleplotr_ is a tool to visualise RNA-seq read overage overlapping gene annotations. A key feature of _wiggleplotr_ is that it is able rescale all introns of a gene to fixed length, making it easier to see differences in read coverage between neighbouring exons that can otherwise be too far away. Since _wiggleplotr_ takes standard BigWig files as input, it can also be used to visualise read overage from other sequencing-based assays such as ATAC-seq and ChIP-seq. 
 
-<img src="PTK2B.png" width="450">
+This repository contains a modified version of _wiggleplotr_. The original stable version can be installed directly from [Bioconductor](https://bioconductor.org/packages/wiggleplotr/):
 
 ## Installation
-This repostitory contains the development version of _wiggleplotr_. The latest stable version can be installed directly from [Bioconductor](https://bioconductor.org/packages/wiggleplotr/):
 ```r
 ## try http:// if https:// URLs are not supported
-if (!requireNamespace("BiocManager", quietly=TRUE))
-    install.packages("BiocManager")
-BiocManager::install("wiggleplotr")
+library("devtools")
+devtools::install_github("mflamand/wiggleplotr")
 ```
 
-Alternatively, you can still install the development version using devtools: 
-```r
-library("devtools")
-devtools::install_github("kauralasoo/wiggleplotr")
-```
-However, the stable Bioconductor version is likely to be the best option for most people.
+There are 3 main differences with the original package: 
+
+- Gene structures are displayed in black only (instead of shades of blue), but UTR regions will be slimer than CDS.
+- New option in plotCoverage for type = "line_sd", which allows plotting of average+/-standard deviation of coverage as a line + ribbon plot
+- Can now optionally inout a list of Granges to be displayed below the gene structure (for example for CLIP sites)
+
+
+
+<img src="Son.png" width="450">
+
 
 ## Getting started
 See the [vignette](https://htmlpreview.github.io/?https://github.com/kauralasoo/wiggleplotr/blob/master/vignettes/wiggleplotr.html) for instructions on how to get started.

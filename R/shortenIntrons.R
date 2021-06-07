@@ -93,3 +93,22 @@ rescaleIntrons <- function(exons, cdss, joint_exons, new_intron_length, flanking
   return(list(exon_ranges = new_exon_ranges, cds_ranges = new_cds_ranges, 
               old_introns = old_introns, new_introns = new_introns))
 }
+
+rescaleIntronsBed <- function(exons, cdss, joint_exons, new_intron_length, flanking_length, bed){
+  
+  #Convert exons and cds objects to ranges
+  exon_ranges = lapply(exons, GenomicRanges::ranges)
+  cds_ranges = lapply(cdss, GenomicRanges::ranges)
+  bed_ranges = lapply(bed, GenomicRanges::ranges)
+
+  
+  #Shorten introns and translate exons into the new exons
+  old_introns = intronsFromJointExonRanges(GenomicRanges::ranges(joint_exons), flanking_length = flanking_length)
+  new_introns = shortenIntrons(old_introns,new_intron_length)
+  new_exon_ranges = lapply(exon_ranges, translateExonCoordinates, old_introns, new_introns)
+  new_cds_ranges = lapply(cds_ranges, translateExonCoordinates, old_introns, new_introns)
+  new_bed_ranges= lapply(bed_ranges, translateExonCoordinates, old_introns, new_introns)
+  
+  return(list(exon_ranges = new_exon_ranges, cds_ranges = new_cds_ranges, 
+              old_introns = old_introns, new_introns = new_introns, bed_ranges=new_bed_ranges))
+}
