@@ -185,6 +185,8 @@ plotCoverage <- function(exons, cdss = NULL, transcript_annotations = NULL, trac
     cdss = exons
   }
   
+  if(mean_only==FALSE & coverage_type =="line_sd"){coverage_type<-"line"}
+  
   #Make some assertions about the input data
   #Check track_data
   assertthat::assert_that(assertthat::has_name(track_data, "sample_id"))
@@ -309,7 +311,7 @@ plotCoverage <- function(exons, cdss = NULL, transcript_annotations = NULL, trac
                                    transcript_label = transcript_label)
   }
   
-  coverage_plot = makeCoveragePlot(coverage_df, limits, alpha, fill_palette, coverage_type)
+  coverage_plot = makeCoveragePlot(coverage_df, limits, alpha, fill_palette, coverage_type,mean_only)
   
   #Choose between returning plot list or a joint plot using plot_grid
   if(return_subplots_list){

@@ -120,9 +120,9 @@ plotTranscriptStructureBed <- function(exons_df, limits = NA, connect_exons = TR
   return(plot)
 }
 
-makeCoveragePlot <- function(coverage_df, limits, alpha, fill_palette, coverage_type){
+makeCoveragePlot <- function(coverage_df, limits, alpha, fill_palette, coverage_type,mean_only){
   #Plot coverage over a region
-  coverage_df<- coverage_df %>% mutate(bottom=coverage-sd,top=coverage+sd)
+  if(mean_only){ coverage_df<- coverage_df %>% mutate(bottom=coverage-sd,top=coverage+sd)  }
   coverage_plot = ggplot(coverage_df, aes_(~bins, ~coverage, group = ~sample_id, alpha = ~alpha)) + 
     geom_blank() +
     theme_light()
