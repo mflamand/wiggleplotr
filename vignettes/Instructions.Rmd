@@ -1,0 +1,248 @@
+---
+title: "Instructions"
+author: "Mathieu Flamand"
+date: "6/8/2021"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+
+you can install directely from github with the following commands:
+
+```{r, "Installation"}
+library("devtools") # may need to install if not already there
+devtools::install_github("mflamand/wiggleplotr")
+```
+
+
+```{r}
+# load libraries
+
+library(GenomicFeatures)
+library(biomaRt)
+library(wiggleplotr)
+library(tidyverse)
+
+```
+
+
+We then need to import transcript annotations for defining the range to be plotted:
+
+1. Get a list of all genes and transcripts names
+
+```{r}
+
+# for a given ensembl release: 
+
+
+# Note that ensembl released hg39 and mm39 genomes, if you use the newest release (version 104), you may not get what you want. select the appropriate version
+#you can see versions with listEnsemblArchives() or look on the ensembl website to find the wanted version. 
+
+listEnsemblArchives()
+
+ensembl102 <- useEnsembl(biomart = 'genes', 
+                       dataset = "mmusculus_gene_ensembl",
+                       version = 102)
+
+selected_attributes = c("ensembl_transcript_id", "ensembl_gene_id",
+                        "external_gene_name", "strand",
+                        "gene_biotype", "transcript_biotype")
+
+transcript_metadata = getBM(attributes = selected_attributes, mart = ensembl102)
+
+
+transcript_metadata = dplyr::rename(transcript_metadata, 
+                     transcript_id = ensembl_transcript_id,
+                     gene_id = ensembl_gene_id,
+                     gene_name = external_gene_name)
+
+# the object can be saved to avoid fetching the info every time:
+ 
+saveRDS(transcript_metadata, "metadata.rds")
+
+# you can then retrieve it on a new session with : 
+
+transcript_metadata = readRDS("metadata.rds")
+
+
+```
+
+or from a gtf file
+
+```{r}
+
+#alternatively you can build a similar table (without gene_pseudotypes) from a gtf file:
+
+#this may be easier if you are after NCBI RefSeq or UCSC annotations
+
+transcript_metadata_ncbi <-readr::read_tsv("mm10.ncbiRefSeq.gtf.gz",col_names =c("chr","source","type","start","end","score","strand","frame","attributes")) %>% 
+  filter(type=="transcript")%>% 
+  separate(.,col="attributes",into=c("gene_id","transcript_id","gene_name"),sep=";") %>% 
+  mutate(gene_id=(str_extract(gene_id, regex("(?<=\").+(?=\")"))),transcript_id=(str_extract(transcript_id, regex("(?<=\").+(?=\")"))),gene_name=str_extract(gene_name, regex("(?<=\").+(?=\")"))) %>%
+  dplyr::select("transcript_id","gene_id","gene_name","strand")
+  
+
+```
+
+2. Get a transcript database with the position of all exons for each transcripts:
+
+You can again do this through biomaRt or by reading a GTF file.
+
+```{r}
+
+#from biomaRt
+
+mart<-useMart("ENSEMBL_MART_ENSEMBL")
+
+#be sure to find the rigth server for your desired release using listEnsemblArchives(). you may need to change https to http in the server used
+
+txdb = makeTxDbFromBiomart(biomart = "ENSEMBL_MART_ENSEMBL",
+                            dataset = "mmusculus_gene_ensembl",
+                             host="http://nov2020.archive.ensembl.org")
+
+# you can save this database for fast loading 
+saveDb(txdb, "txdb_file.rds")
+txdb = loadDb("txdb_file.rds")
+
+
+# or you can obtain this from the same GTF used in the first step with :
+
+txdb_ncbi <- makeTxDbFromGFF("./mm10.ncbiRefSeq.gtf.gz",organism="Mus musculus")
+ 
+saveDb(txdb_ncbi, "txdb_ncbi_file.rds")
+txdb_ncbi = loadDb("txdb_ncbi_file.rds")
+```
+
+The exons and coding sequences found in the database can now be extracted
+
+```{r}
+exons = exonsBy(txdb, by = "tx", use.names = TRUE)
+cdss = cdsBy(txdb, by = "tx", use.names = TRUE)
+```
+
+
+to plot coverage we need to define a list of bigwig files that will be read:
+
+```{r}
+
+# if bigwigs are stranded, you can make a data frame for each set
+
+sample_data_fw <- dplyr::data_frame(
+  sample_id = c("Input_1.fw", "Input_2.fw", "Input_3.fw",
+                "DF1_RIP_1.fw","DF1_RIP_2.fw","DF1_RIP_3.fw",
+                "DF2_RIP_1.fw","DF2_RIP_2.fw","DF2_RIP_3.fw",
+                "DF3_RIP_1.fw","DF3_RIP_2.fw","DF3_RIP_3.fw"),
+  sample = factor(c(rep("Input",3),rep("DF1",3),rep("DF2",3),rep("DF3",3)), levels = c("Input", "DF1","DF2","DF3")), 
+  scaling_factor = 1) #scaling factor can be used to scale coverage in individual bigwigs
+
+#mutate to add path and .bw extension:
+
+sample_data_fw <- sample_data_fw %>%
+  dplyr::mutate(bigWig = paste0("./BW/",sample_id,".bw"))  # change for position of files
+
+#mutate to add grouping for color and track position: if track_id=sample, each sample is on a different tract. if you assign a name ("RNAseq") to all, they will be all on the same track.
+
+track_data_fw <- dplyr::mutate(sample_data_fw, track_id = sample, colour_group = sample)
+
+
+#repeat for reverse strand if necessary:
+
+sample_data_rv = dplyr::data_frame(
+  sample_id = c("Input_1.rv", "Input_2.rv", "Input_3.rv", "DF1_RIP_1.rv","DF1_RIP_2.rv","DF1_RIP_3.rv", "DF2_RIP_1.rv","DF2_RIP_2.rv","DF2_RIP_3.rv", "DF3_RIP_1.rv","DF3_RIP_2.rv","DF3_RIP_3.rv"), 
+  sample = factor(c(rep("Input",3),rep("DF1",3),rep("DF2",3),rep("DF3",3)), levels = c("Input", "DF1","DF2","DF3")),  scaling_factor = 1)
+
+sample_data_rv = sample_data_rv %>%
+  dplyr::mutate(bigWig = paste0("./BW/",sample_id,".bw"))
+
+track_data_rv = dplyr::mutate(sample_data_rv, track_id = sample, colour_group = sample)
+
+
+```
+
+Import bed files (if wanted):
+
+```{r}
+MeRIP<-import("D:/OneDrive/OneDrive - Duke University/RNAseq/Flamand_6511/m6a/bed/MeRIP.sorted.bed", format	="bed")
+
+DART<-import(con="D:/OneDrive/OneDrive - Duke University/RNAseq/Flamand_6511/m6a/bed/Neurons_common.bed", format="bed")
+
+# if single nucleotide resolution, you can widen the peaks for better visualization
+start(DART) <- start(DART) - 5
+end(DART) <- end(DART) + 5
+
+# make a list of all datasets (if you have a single datasets, put it as a list as well)
+bed<-list(MeRIP,DART)
+#name each element of the list
+names(bed)<-c("MeRIP","DART")
+```
+
+
+We can plot only the gene structure with plotTranscripts: 
+
+```{r}
+
+# we first select wich transcript we want to plot from the metadata table: 
+
+# for all transcript of a given gene:
+selected_transcripts = transcript_metadata %>%
+  dplyr::filter(gene_name == "Map2", transcript_biotype == "protein_coding")
+
+# or for specific transcripts:
+selected_transcripts <- transcript_metadata %>%
+  dplyr::filter(transcript_id == "ENSMUST00000156636" | transcript_id == "ENSMUST00000141148")
+
+#get list of Ids
+tx_ids = selected_transcripts$transcript_id
+
+
+plotTranscripts(exons[tx_ids],
+                cdss[tx_ids],
+                transcript_metadata,
+                rescale_introns = TRUE)
+
+
+#to also plot bed sites:
+  
+plotTranscripts(exons[tx_ids],
+                cdss[tx_ids],
+                transcript_metadata,
+                rescale_introns = TRUE,
+                bed_sites=bed) 
+# other useful options: 
+# new_intron_length = 50      ## change relative size of introns 
+# flanking_length = c(50,50)   ## add space on either size of plot
+# transcript_label = TRUE    ## change to FALSE to remove labels for each transcripts
+```
+
+We can plot the coverage with:plotCoverage()
+
+```{r}
+
+plotCoverage(exons[tx_ids], # list of exons
+             cdss[tx_ids],  #list of cdss
+             transcript_metadata, # metadata to label gene name
+             track_data = track_data_fw,    # dataframe with list of bigwig files
+             fill_palette =  c("black","orange","blue","red") , # colors for each dataset (at least as much as number of conditions)
+             alpha = 0.5,  # transparency
+             new_intron_length = 25,  # size of rescaled introns (defaults to 50)
+             transcript_label = TRUE, 
+             rescale_introns = TRUE,
+             coverage_type='line_sd',   # one of: line, area, both, line_sd
+             heights=c(0.60,0.40),    # relative size of both plot in final plot (coverage plot and gene structure plot)
+             mean_only=TRUE,          # if set to false, each replicate is displayed instead of the average
+             plot_fraction = 0.5,     # subsample bigwig for faster plotting
+             flanking_length = c(50, 50), 
+             return_subplots_list =FALSE,  # return coverage and gene structure plots without combining them together. 
+             bed_sites = bed) # list of bed sites
+
+# grouping can be changed on the fly by changing the track_data within the plot, for example:
+
+track_data_fw %>% mutate(track_id = c(rep("Input",3),rep("RIP",9)))
+#would result in the coverage plot in 2 panels (input and RIP separated.)
+
+```
+
+

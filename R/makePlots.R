@@ -113,7 +113,7 @@ plotTranscriptStructureBed <- function(exons_df, limits = NA, connect_exons = TR
                             data = transcript_annot, hjust = 0, vjust = 0, size = 2)
   
     plot = plot + geom_text(aes(x =  0, 
-                               y = transcript_rank, 
+                               y = transcript_rank+ 0.30, 
                                 label = transcript_id), 
                             data = bed_annot, hjust = 0, vjust = 0, size = 2)
   }
