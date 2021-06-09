@@ -31,9 +31,19 @@ plotTranscripts <- function(exons, cdss = NULL, tx_ids,transcript_annotations = 
   if(is.null(cdss)){
     cdss = exons
   }
-  
-    
-  cdss <- check_cds(exons,cdss,tx_ids)
+
+  lapply(list(tx_ids), tryCatch)
+cdss <- out<-tryCatch(
+   {
+     cdss[tx_ids]
+   },
+   error=function(e){
+     exons[tx_ids]
+   }
+ )
+
+   
+   # check_cds(cdss,tx_ids,exons)
   
   #IF cdss is not specified then use exons instead on cdss
 
