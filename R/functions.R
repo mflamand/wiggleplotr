@@ -171,18 +171,23 @@ subsamplePoints <- function(tx_annotations, plot_fraction){
 }
 
 #check if transcript has coding sequence, else defaults to exon. Allows to plot ncRNAs.
-check_cds<-function(x,y,a){
-  out<-tryCatch(
-    {
-      x[y]
-    },
-    error=function(cond){
-      return(a[y])
-    }
-  )
-  return(out)
-}
+# check_cds<-function(x,y,a){
+#   out<-tryCatch(
+#     {
+#       x[y]
+#     },
+#     error=function(cond){
+#       return(a[y])
+#     }
+#   )
+#   return(out)
+# }
 
+check_cds<-function(tx_ids,cdss,exons){
+  
+  tryCatch(cdss[tx_ids], error = function(e)  exons[tx_ids])
+ 
+}
 
 
 

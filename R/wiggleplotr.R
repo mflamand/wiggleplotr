@@ -23,30 +23,17 @@ plotTranscripts <- function(exons, cdss = NULL, tx_ids,transcript_annotations = 
                             rescale_introns = TRUE, new_intron_length = 50, 
                             flanking_length = c(50,50), connect_exons = TRUE, 
                             transcript_label = TRUE, region_coords = NULL, bed_sites=NULL){
-  
-  # assertthat::assert_that(exists(tx_ids))
-  
-  exons<- exons[tx_ids]
 
+  exons<- exons[tx_ids]
+  
+  #IF cdss is not specified then use exons instead on cdss
   if(is.null(cdss)){
     cdss = exons
   }
 
-  lapply(list(tx_ids), tryCatch)
-cdss <- out<-tryCatch(
-   {
-     cdss[tx_ids]
-   },
-   error=function(e){
-     exons[tx_ids]
-   }
- )
-
-   
-   # check_cds(cdss,tx_ids,exons)
+  cdss<-lapply(tx_ids,check_cds,cdss,exons)
+  cdss<-do.call("c",cdss1)
   
-  #IF cdss is not specified then use exons instead on cdss
-
   #Check exons and cdss
   assertthat::assert_that(is.list(exons)|| is(exons, "GRangesList")) #Check that exons and cdss objects are lists
   assertthat::assert_that(is.list(cdss) || is(cdss, "GRangesList"))
@@ -207,7 +194,8 @@ plotCoverage <- function(exons, cdss = NULL,tx_ids, transcript_annotations = NUL
     cdss = exons
   }
   
-  cdss <- check_cds(exons,cdss,tx_ids)
+  cdss<-lapply(tx_ids,check_cds,cdss,exons)
+  cdss<-do.call("c",cdss1)
   
   if(mean_only==FALSE & coverage_type =="line_sd"){coverage_type<-"line"}
   
