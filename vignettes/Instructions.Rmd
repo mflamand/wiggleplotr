@@ -78,12 +78,22 @@ or from a gtf file
 
 #this may be easier if you are after NCBI RefSeq or UCSC annotations
 
-transcript_metadata_ncbi <-readr::read_tsv("mm10.ncbiRefSeq.gtf.gz",col_names =c("chr","source","type","start","end","score","strand","frame","attributes")) %>% 
-  filter(type=="transcript")%>% 
-  separate(.,col="attributes",into=c("gene_id","transcript_id","gene_name"),sep=";") %>% 
-  mutate(gene_id=(str_extract(gene_id, regex("(?<=\").+(?=\")"))),transcript_id=(str_extract(transcript_id, regex("(?<=\").+(?=\")"))),gene_name=str_extract(gene_name, regex("(?<=\").+(?=\")"))) %>%
-  dplyr::select("transcript_id","gene_id","gene_name","strand")
-  
+temp<-readr::read_tsv("mm10.ncbiRefSeq.gtf.gz",col_names =c("chr","source","type","start","end","score","strand","frame","attributes"))
+
+transcript_metadata_ncbi<- temp %>% filter(type=="transcript"|type=="CDS")%>%
+  tidyr::separate(.,col="attributes",into=c("gene_id","transcript_id","gene_name"),sep=";") %>% 
+  mutate(gene_id=(stringr::str_extract(gene_id, stringr::regex("(?<=\").+(?=\")"))),
+         transcript_id=(stringr::str_extract(transcript_id, stringr::regex("(?<=\").+(?=\")"))),
+         gene_name=stringr::str_extract(gene_name, stringr::regex("(?<=\").+(?=\")")))
+
+cds_list<-unique((transcript_metadata_ncbi %>% filter(type=="CDS"))$transcript_id)
+
+ transcript_metadata_ncbi<-transcript_metadata_ncbi %>% filter(type=="transcript") %>% mutate(gene_biotype = if_else(transcript_id %in% cds_list, "protein_coding","non_coding")) %>% dplyr::select("transcript_id","gene_id","gene_name","strand","gene_biotype")
+
+
+ rm(temp,cds_list)
+
+
 
 ```
 

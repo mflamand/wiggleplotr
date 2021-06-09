@@ -170,6 +170,18 @@ subsamplePoints <- function(tx_annotations, plot_fraction){
   return(points)
 }
 
+#check if transcript has coding sequence, else defaults to exon. Allows to plot ncRNAs.
+check_cds<-function(a,x,y){
+  out<-tryCatch(
+    {
+      x[y]
+    },
+    error=function(cond){
+      return(a[y])      
+    }
+  )
+  return(out)
+}
 
 #' Returns a three-colour palette suitable for visualising read coverage stratified by genotype
 #'

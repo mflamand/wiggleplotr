@@ -19,24 +19,34 @@
 #' plotTranscripts(ncoa7_exons, ncoa7_cdss, ncoa7_metadata, rescale_introns = FALSE)
 #' 
 #' @export
-plotTranscripts <- function(exons, cdss = NULL, transcript_annotations = NULL, 
+plotTranscripts <- function(exons, cdss = NULL, tx_ids,transcript_annotations = NULL, 
                             rescale_introns = TRUE, new_intron_length = 50, 
                             flanking_length = c(50,50), connect_exons = TRUE, 
-                            transcript_label = TRUE, region_coords = NULL,bed_sites=NULL){
+                            transcript_label = TRUE, region_coords = NULL, bed_sites=NULL){
   
-  #IF cdss is not specified then use exons instead on cdss
+  # assertthat::assert_that(exists(tx_ids))
+  
+  exons<- exons[tx_ids]
+
   if(is.null(cdss)){
     cdss = exons
   }
   
+    
+  cdss <- check_cds(exons,cdss,tx_ids)
+  
+  #IF cdss is not specified then use exons instead on cdss
+
   #Check exons and cdss
   assertthat::assert_that(is.list(exons)|| is(exons, "GRangesList")) #Check that exons and cdss objects are lists
-  assertthat::assert_that(is.list(cdss) || is(exons, "GRangesList"))
+  assertthat::assert_that(is.list(cdss) || is(cdss, "GRangesList"))
+
   
   #Join exons together
   joint_exons = joinExons(exons)
   
-  if(exists("bed_sites")){
+  if(!is.null("bed_sites")){
+    # assertthat::assert_that(is.list(bed_sites) || is(bed_sites, "GRangesList"))
     bed=lapply(bed_sites, subsetByOverlaps, joint_exons )
   }
   
@@ -173,17 +183,21 @@ plotTranscripts <- function(exons, cdss = NULL, transcript_annotations = NULL,
 #' }
 #' 
 #' @export
-plotCoverage <- function(exons, cdss = NULL, transcript_annotations = NULL, track_data, rescale_introns = TRUE,
+plotCoverage <- function(exons, cdss = NULL,tx_ids, transcript_annotations = NULL, track_data, rescale_introns = TRUE,
                         new_intron_length = 50, flanking_length = c(50,50),
                         plot_fraction = 0.1, heights = c(0.75, 0.25), alpha = 1,
                         fill_palette = c("#a1dab4","#41b6c4","#225ea8"), mean_only = TRUE, 
                         connect_exons = TRUE, transcript_label = TRUE, return_subplots_list = FALSE,
                         region_coords = NULL, coverage_type = "area", bed_sites=NULL){
   
+  exons<- exons[tx_ids]
+  
   #IF cdss is not specified then use exons instead on cdss
   if(is.null(cdss)){
     cdss = exons
   }
+  
+  cdss <- check_cds(exons,cdss,tx_ids)
   
   if(mean_only==FALSE & coverage_type =="line_sd"){coverage_type<-"line"}
   
