@@ -74,7 +74,7 @@ plotTranscriptStructureBed <- function(exons_df, limits = NA, connect_exons = TR
   plot = ggplot(exons_df) + geom_blank()
   if(connect_exons){ #Print line connecting exons
     # plot = plot + geom_line(aes_(x = ~start, y = ~transcript_rank, group = ~transcript_rank, color = ~feature_type))
-    plot = plot + geom_line(data=. %>% filter(feature_type!="bed"),aes(x = start, y = transcript_rank, group = transcript_rank), color = "black")
+    plot = plot + geom_line(data=. %>% dplyr::filter(feature_type!="bed"),aes(x = start, y = transcript_rank, group = transcript_rank), color = "black")
   }
   plot = plot + 
     geom_rect(data=. %>% dplyr::filter(feature_type=="exon"),aes_(xmin = ~start, 

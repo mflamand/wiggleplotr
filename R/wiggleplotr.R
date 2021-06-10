@@ -32,7 +32,7 @@ plotTranscripts <- function(exons, cdss = NULL, tx_ids,transcript_annotations = 
   }
 
   cdss<-lapply(tx_ids,check_cds,cdss,exons)
-  cdss<-do.call("c",cdss1)
+  cdss<-do.call("c",cdss)
   
   #Check exons and cdss
   assertthat::assert_that(is.list(exons)|| is(exons, "GRangesList")) #Check that exons and cdss objects are lists
@@ -195,7 +195,7 @@ plotCoverage <- function(exons, cdss = NULL,tx_ids, transcript_annotations = NUL
   }
   
   cdss<-lapply(tx_ids,check_cds,cdss,exons)
-  cdss<-do.call("c",cdss1)
+  cdss<-do.call("c",cdss)
   
   if(mean_only==FALSE & coverage_type =="line_sd"){coverage_type<-"line"}
   

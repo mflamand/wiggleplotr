@@ -18,7 +18,7 @@ devtools::install_github("mflamand/wiggleplotr")
 ```
 
 
-```{r}
+```{r, message=FALSE,warning=FALSE}
 # load libraries
 
 library(GenomicFeatures)
@@ -93,6 +93,8 @@ cds_list<-unique((transcript_metadata_ncbi %>% filter(type=="CDS"))$transcript_i
 
  rm(temp,cds_list)
 
+saveRDS(transcript_metadata_ncbi, "metadata_ncbi.rds")
+#transcript_metadata_ncbi = readRDS("metadata_ncbi.rds")
 
 
 ```
@@ -208,16 +210,18 @@ selected_transcripts <- transcript_metadata %>%
 tx_ids = selected_transcripts$transcript_id
 
 
-plotTranscripts(exons[tx_ids],
-                cdss[tx_ids],
+plotTranscripts(exons,
+                cdss,
+                tx_ids=tx_ids,
                 transcript_metadata,
                 rescale_introns = TRUE)
 
 
 #to also plot bed sites:
   
-plotTranscripts(exons[tx_ids],
-                cdss[tx_ids],
+plotTranscripts(exons,
+                cdss,
+                tx_ids=tx_ids,
                 transcript_metadata,
                 rescale_introns = TRUE,
                 bed_sites=bed) 
@@ -231,8 +235,9 @@ We can plot the coverage with:plotCoverage()
 
 ```{r}
 
-plotCoverage(exons[tx_ids], # list of exons
-             cdss[tx_ids],  #list of cdss
+plotCoverage(exons, # list of exons
+             cdss,  #list of cdss
+             tx_ids=tx_ids
              transcript_metadata, # metadata to label gene name
              track_data = track_data_fw,    # dataframe with list of bigwig files
              fill_palette =  c("black","orange","blue","red") , # colors for each dataset (at least as much as number of conditions)
