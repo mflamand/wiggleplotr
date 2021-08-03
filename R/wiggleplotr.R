@@ -314,7 +314,14 @@ plotCoverage <- function(exons, cdss = NULL,tx_ids, transcript_annotations = NUL
   # 
   transcript_struct = prepareTranscriptStructureForPlotting(tx_annotations$exon_ranges, 
                                                     tx_annotations$cds_ranges, plotting_annotations,tx_annotations$bed_ranges)
-  # return(list(tx_annotations,transcript_struct))
+  if(unique(transcript_struct$strand) == -1){
+    transcript_struct <-
+      transcript_struct %>%
+      dplyr::mutate(transcript_label = paste0(sub("< ", "", transcript_label), " >"))
+    limits = rev(limits)
+  }
+
+  
   if(!is.null(bed_sites)){
     tx_structure = plotTranscriptStructureBed(transcript_struct, limits, connect_exons = connect_exons, xlabel = xlabel, 
                                       transcript_label = transcript_label)

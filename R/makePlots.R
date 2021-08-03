@@ -1,11 +1,22 @@
 plotTranscriptStructure <- function(exons_df, limits = NA, connect_exons = TRUE,  
                                     xlabel = "Distance from gene start (bp)", transcript_label = TRUE){
   
+  if(diff(limits) < 0){
+    length_mRNA<-max(exons_df$end)
+    exons_df<- exons_df %>% 
+      dplyr::mutate(new_start=length_mRNA-end,new_end=length_mRNA-start, start=new_start,end=new_end) %>%
+      dplyr::select(-new_start,-new_end)
+  }
+
+  
+  order_func <- ifelse(diff(limits) < 0, dplyr::slice_max, dplyr::slice_min)
+  
   #Extract the position for plotting transcript name
   transcript_annot = dplyr::group_by_(exons_df, ~transcript_id) %>% 
     dplyr::filter_(~feature_type == "exon") %>%
     dplyr::arrange_('transcript_id', 'start') %>%
-    dplyr::filter(row_number() == 1)
+    order_func(start)
+     # dplyr::filter(row_number() == 1)
   
   #Create a plot of transcript structure
   plot = ggplot(exons_df) + geom_blank()
@@ -23,7 +34,7 @@ plotTranscriptStructure <- function(exons_df, limits = NA, connect_exons = TRUE,
                                                                   ymax = ~transcript_rank + 0.25, 
                                                                   ymin = ~transcript_rank - 0.25, 
                                                                   fill = ~feature_type)) + 
-    theme_light() +
+        theme_light() +
     theme(plot.margin=unit(c(0,1,1,1),"line"), 
           axis.title.y = element_blank(),
           axis.text.y = element_blank(),
@@ -39,15 +50,19 @@ plotTranscriptStructure <- function(exons_df, limits = NA, connect_exons = TRUE,
     scale_fill_manual(values = c("black","black")) + 
     scale_colour_manual(values = c("black","black"))
   if(all(!is.na(limits))){
-    plot = plot + scale_x_continuous(expand = c(0,0)) +
+    if(diff(limits) < 0){
+      limits <- rev(limits)
+     }
+      plot = plot + scale_x_continuous(expand = c(0,0)) +
       coord_cartesian(xlim = limits)
   }
   if(transcript_label){
-    plot = plot + geom_text(aes_(x = ~start, 
-                                 y = ~transcript_rank + 0.30, 
-                                 label = ~transcript_label), 
-                            data = transcript_annot, hjust = 0, vjust = 0, size = 4)
+    label_placement <- ifelse(diff(limits) < 0, "end", "start")
     
+    plot = plot + geom_text(aes(x = .data[[label_placement]],
+                                y = .data[["transcript_rank"]] + 0.30,
+                                label = .data[["transcript_label"]]),
+                            data = transcript_annot, hjust = 0, vjust = 0, size = 3)
   }
   return(plot)
 }
