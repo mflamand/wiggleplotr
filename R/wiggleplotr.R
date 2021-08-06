@@ -185,7 +185,7 @@ plotCoverage <- function(exons, cdss = NULL,tx_ids, transcript_annotations = NUL
                         plot_fraction = 0.1, heights = c(0.75, 0.25), alpha = 1,
                         fill_palette = c("#a1dab4","#41b6c4","#225ea8"), mean_only = TRUE, 
                         connect_exons = TRUE, transcript_label = TRUE, return_subplots_list = FALSE,
-                        region_coords = NULL, coverage_type = "area", bed_sites=NULL){
+                        region_coords = NULL, coverage_type = "area", linesize=0.5, bed_sites=NULL){
   
   exons<- exons[tx_ids]
   
@@ -330,7 +330,7 @@ plotCoverage <- function(exons, cdss = NULL,tx_ids, transcript_annotations = NUL
                                    transcript_label = transcript_label)
   }
   
-  coverage_plot = makeCoveragePlot(coverage_df, limits, alpha, fill_palette, coverage_type,mean_only)
+  coverage_plot = makeCoveragePlot(coverage_df, limits, alpha, fill_palette, coverage_type,mean_only, linesize=linesize)
   
   #Choose between returning plot list or a joint plot using plot_grid
   if(return_subplots_list){

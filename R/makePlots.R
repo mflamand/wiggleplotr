@@ -135,7 +135,7 @@ plotTranscriptStructureBed <- function(exons_df, limits = NA, connect_exons = TR
   return(plot)
 }
 
-makeCoveragePlot <- function(coverage_df, limits, alpha, fill_palette, coverage_type,mean_only){
+makeCoveragePlot <- function(coverage_df, limits, alpha, fill_palette, coverage_type,mean_only,linesize=linesize){
   #Plot coverage over a region
   if(mean_only){ coverage_df<- coverage_df %>% mutate(bottom=coverage-sd,top=coverage+sd)  }
   coverage_plot = ggplot(coverage_df, aes_(~bins, ~coverage, group = ~sample_id, alpha = ~alpha)) + 
@@ -144,17 +144,18 @@ makeCoveragePlot <- function(coverage_df, limits, alpha, fill_palette, coverage_
   #Choose between plotting a line and plotting area
   if(coverage_type == "line"){
     coverage_plot = coverage_plot + 
-      geom_line(aes_(colour = ~colour_group), alpha = alpha, position = "identity") 
+      geom_line(aes_(colour = ~colour_group), alpha = alpha,size=linesize, position = "identity") 
   } else if (coverage_type == "area"){
     coverage_plot = coverage_plot + 
       geom_area(aes_(fill = ~colour_group), alpha = alpha, position = "identity")
   } else if (coverage_type == "both"){
     coverage_plot = coverage_plot + 
       geom_area(aes_(fill = ~colour_group), alpha = alpha, position = "identity") +
-      geom_line(aes_(colour = ~colour_group), alpha = alpha, position = "identity") 
+      # geom_line(aes_(colour = ~colour_group), alpha = alpha, size=linesize, position = "identity") 
+      geom_line(color="black", alpha = alpha, size=linesize, position = "identity") 
   } else if (coverage_type == "line_sd"){
       coverage_plot = coverage_plot + 
-      geom_line(aes_(colour = ~colour_group), alpha = alpha, position = "identity")+
+      geom_line(aes_(colour = ~colour_group), alpha = alpha,size=linesize, position = "identity")+
       geom_ribbon(aes(ymin=coverage-sd,ymax=coverage+sd, fill=colour_group),alpha=alpha/2, position ="identity")
   } else{
     stop("Coverage type not supported.")
