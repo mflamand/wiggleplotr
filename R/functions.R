@@ -9,6 +9,15 @@ readCoverageFromBigWig <- function(bigwig_path, gene_range){
   coverage_rle = coverage_rle[(GenomicRanges::start(gene_range)):(GenomicRanges::end(gene_range))] #Keep the region of interest
 }
 
+readCoverageFromBedGraph <- function(bedgraph_path, gene_range){
+  #Read coverage over a region from a bigWig file
+  sel = gene_range
+  coverage_ranges = rtracklayer::import.bedGraph(bedgraph_path, which = sel)
+  GenomeInfoDb::seqlevels(coverage_ranges) = S4Vectors::as.vector.Rle(GenomicRanges::seqnames(gene_range), mode = "character")
+  coverage_rle = GenomicRanges::coverage(coverage_ranges, weight = GenomicRanges::score(coverage_ranges), width =  GenomicRanges::start(gene_range)+GenomicRanges::width(gene_range)-1)[[1]]
+  coverage_rle = coverage_rle[(GenomicRanges::start(gene_range)):(length(coverage_rle))] #Keep the region of interest
+}
+
 joinExons <- function(exons) {
   #Join a list of exons into one GRanges object
   

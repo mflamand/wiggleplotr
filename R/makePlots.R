@@ -172,6 +172,32 @@ makeCoveragePlot <- function(coverage_df, limits, alpha, fill_palette, coverage_
   return(coverage_plot)
 }
 
+
+
+makeBedGraphPlot <- function(coverage_df, limits, alpha, fill_palette, coverage_type,mean_only,linesize=linesize){
+  #Plot coverage over a region
+  coverage_plot <- ggplot(coverage_df, aes_(~bins, ~coverage, group = ~sample_id, alpha = ~alpha)) + 
+    geom_blank() +
+    theme_light()
+  #Choose between plotting a line and plotting area
+  
+    coverage_plot <- coverage_plot +
+      geom_line(aes_(fill = ~colour_group), alpha = alpha, position = "identity", size=linesize)
+   
+  coverage_plot = coverage_plot +
+    facet_grid(track_id~.) +
+    dataTrackTheme() + 
+    scale_x_continuous(expand = c(0,0)) +
+    scale_y_continuous(expand = c(0,c(0.05))) +
+    coord_cartesian(xlim = limits) +
+    scale_color_manual(values = fill_palette) +
+    scale_fill_manual(values = fill_palette) +
+    ylab("%C-to-U")
+  return(coverage_plot)
+}
+
+
+
 #' Make a Manahattan plot of p-values
 #' 
 #' The Manhattan plots is compatible with wiggpleplotr read coverage and transcript strucutre plots. 

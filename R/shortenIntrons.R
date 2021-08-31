@@ -59,6 +59,48 @@ shrinkIntronsCoverage <- function(coverage, old_introns, new_introns){
   }
 }
 
+shrinkIntronsCoverageBedGraph <- function(coverage, old_introns, new_introns){
+  
+  #Covert coverage vector from Rle to normal vector
+  coverage = S4Vectors::as.vector.Rle(coverage, mode = "double")
+  
+  #Calculate full annotations
+  old_annot = S4Vectors::sort(c(old_introns, IRanges::gaps(old_introns)))
+  new_annot = S4Vectors::sort(c(new_introns, IRanges::gaps(new_introns)))
+  
+  #If new and old annotations are identical then return coverage as data frame
+  if(all(IRanges::width(old_annot) == IRanges::width(new_annot))){
+    bins = seq(min(IRanges::start(new_annot)), max(IRanges::end(new_annot)))
+    
+    #Make sure that coverage vector and bins vector have equal length
+    assertthat::assert_that(assertthat::are_equal(length(bins), length(coverage)))
+    new_coverage = dplyr::data_frame(bins = bins, coverage = coverage)
+    return(new_coverage)
+    
+  } else{ #Otherwise shrink intron converage
+    
+    #Calculate the width of each annotation bin
+    bin_width = ceiling(IRanges::width(old_annot)/IRanges::width(new_annot))
+    
+    #Build summarisation groups
+    s_coord = IRanges::start(new_annot)
+    e_coord = IRanges::end(new_annot)
+    w_old = IRanges::width(old_annot)
+    
+    bins = c()
+    
+    for (i in seq_along(new_annot)){
+      bin_id = rep(c(s_coord[i]:e_coord[i]),each = bin_width[i])[1:w_old[i]]
+      bins = c(bins, bin_id)
+    }
+    
+    #Calculate mean coverage in bins
+    df = data.frame(coverage, bins)
+    # new_coverage = dplyr::summarize(dplyr::group_by(df, bins), coverage = mean(coverage))
+    return(df)
+  }
+}
+
 translateExonCoordinates <- function(exons, old_introns, new_introns){
   #Tranlate exon coordinates by shortening introns
   old_exon_starts = IRanges::start(exons)
