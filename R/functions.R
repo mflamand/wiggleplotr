@@ -79,9 +79,15 @@ prepareTranscriptStructureForPlotting <- function(exon_ranges, cds_ranges, trans
   #convert BED ranges into a data.frame
   
   bed_df <- purrr::map_df(bed_ranges, data.frame, .id = "transcript_id")
-  bed_df <- bed_df %>% dplyr::mutate(transcript_rank = as.numeric(factor(bed_df$transcript_id)), type = "")
-  transcript_rank_bed = nrow(unique(bed_df["transcript_rank"]))
-  
+  if (dim(bed_df)[1] != 0) {
+    bed_df <- bed_df %>% dplyr::mutate(transcript_rank = as.numeric(factor(bed_df$transcript_id)), type = "")
+    transcript_rank_bed = nrow(unique(bed_df["transcript_rank"]))
+  }else{
+    transcript_rank_bed=0
+  }
+
+
+
   #Convert exon ranges into data.frame and add transcript rank
   exons_df = purrr::map_df(exon_ranges, data.frame, .id = "transcript_id")
   exons_df = dplyr::mutate(exons_df, transcript_rank = as.numeric(factor(exons_df$transcript_id))+transcript_rank_bed, type = "")
