@@ -9,14 +9,18 @@ output: html_document
 knitr::opts_chunk$set(echo = TRUE)
 ```
 
+*wiggleplotr* is a tool to visualise RNA-seq read overage accross annotated exons. A key feature of *wiggleplotr* is that it is able rescale all introns of a gene to fixed length, making it easier to see differences in read coverage between neighbouring exons that can otherwise be too far away.
 
-you can install directely from github with the following commands:
+I have modified *wiggleplotr* to allow other plotting other type of data, such as bed and bedGraph files, which facilitates visualization of m^6^A data
+
+Although it is available on bioconductor, if you want to use these features, you should install it from my github using devtools:
 
 ```{r, "Installation"}
 library("devtools") # may need to install if not already there
 devtools::install_github("mflamand/wiggleplotr")
 ```
 
+We can then load the required libraries: 
 
 ```{r, message=FALSE,warning=FALSE}
 # load libraries
@@ -28,20 +32,31 @@ library(tidyverse)
 
 ```
 
+There are at least 3 useful functions in _wiggleplotR_: 
 
-We then need to import transcript annotations for defining the range to be plotted:
+First, the _plotTranscripts_ function allows you to visualize the structure of all transcripts of a gene. It takes the following three inputs, but only the first one is required:
 
-1. Get a list of all genes and transcripts names
+* `exons` - list of GRanges objects containing the start and end coordinates of exons for each transcript.
+* `cdss` - list of GRanges objects containing the start and end coordinates of coding sequence (cds) for each transcript (optional).
+* `annotations` - a data frame with at least the following three columns: transcript_id, gene_name and strand (optional).
+
+The _plotCoverage_ function can be used to visualize RNA-seq read coverage across the exons of a gene. 
+
+In addition the the `exons`, `cdss` and `transcript_annotations` parameters required by _plotTranscripts_, _plotCoverage_ also requires a `track_data` data frame containing RNA-seq sample metadata as well as path to the read coverage data in BigWig format. 
+
+The _plotCoverageBedGraph_ function is a modified _plotCoverage_ function that can be used to visualize bedgraph coverage across the exons of a gene.it can easily be addapted to plot the C-to-U % in a DART-seq experiment. 
+
+In addition the the `exons`, `cdss` and `transcript_annotations` parameters required by _plotTranscripts_, _plotCoverage_ and _plotCoverageBedGraph_ also requires a `track_data` data frame containing RNA-seq sample metadata as well as path to the read coverage data in BigWig (or Bedgraph) format. 
+
+### import transcript annotations
+
+In order to use those functions, we need to these import transcript annotations for defining the range to be plotted. This can be done from different sources.
+
+1.  Get a list of all genes and transcripts names from ensembl
 
 ```{r}
 
 # for a given ensembl release: 
-
-
-# Note that ensembl released hg39 and mm39 genomes, if you use the newest release (version 104), you may not get what you want. select the appropriate version
-#you can see versions with listEnsemblArchives() or look on the ensembl website to find the wanted version. 
-
-listEnsemblArchives()
 
 ensembl102 <- useEnsembl(biomart = 'genes', 
                        dataset = "mmusculus_gene_ensembl",
@@ -59,6 +74,9 @@ transcript_metadata = dplyr::rename(transcript_metadata,
                      gene_id = ensembl_gene_id,
                      gene_name = external_gene_name)
 
+# we can view how this table looks like
+transcript_metadata
+
 # the object can be saved to avoid fetching the info every time:
  
 saveRDS(transcript_metadata, "metadata.rds")
@@ -67,18 +85,17 @@ saveRDS(transcript_metadata, "metadata.rds")
 
 transcript_metadata = readRDS("metadata.rds")
 
-
 ```
 
-or from a gtf file
+2. Alternatively, the same information can be retrieve from a gtf file obtained from ensembl or UCSC etc. 
 
 ```{r}
 
-#alternatively you can build a similar table (without gene_pseudotypes) from a gtf file:
+#alternatively you can build a similar table from a gtf file:
 
-#this may be easier if you are after NCBI RefSeq or UCSC annotations
+#this may be easier if you are after NCBI RefSeq or UCSC annotations 
 
-temp<-readr::read_tsv("mm10.ncbiRefSeq.gtf.gz",col_names =c("chr","source","type","start","end","score","strand","frame","attributes"))
+temp<-readr::read_tsv("../data/mm10.ncbiRefSeq.gtf.gz",col_names =c("chr","source","type","start","end","score","strand","frame","attributes"))
 
 transcript_metadata_ncbi<- temp %>% filter(type=="transcript"|type=="CDS")%>%
   tidyr::separate(.,col="attributes",into=c("gene_id","transcript_id","gene_name"),sep=";") %>% 
@@ -99,9 +116,12 @@ saveRDS(transcript_metadata_ncbi, "metadata_ncbi.rds")
 
 ```
 
-2. Get a transcript database with the position of all exons for each transcripts:
+### import transcript positions
 
-You can again do this through biomaRt or by reading a GTF file.
+Now that we know what are the transcript_ids for each genes, we need to know what are the exons, introns, and cds of each of these transcripts. We can again do this using 2 different ways:
+
+1. Get a transcript database with the position of all exons for each transcripts through biomaRt:
+
 
 ```{r}
 
@@ -109,7 +129,7 @@ You can again do this through biomaRt or by reading a GTF file.
 
 mart<-useMart("ENSEMBL_MART_ENSEMBL")
 
-#be sure to find the rigth server for your desired release using listEnsemblArchives(). you may need to change https to http in the server used
+#be sure to find the right server for your desired release using listEnsemblArchives(). you may need to change https to http in the server used
 
 txdb = makeTxDbFromBiomart(biomart = "ENSEMBL_MART_ENSEMBL",
                             dataset = "mmusculus_gene_ensembl",
@@ -118,23 +138,82 @@ txdb = makeTxDbFromBiomart(biomart = "ENSEMBL_MART_ENSEMBL",
 # you can save this database for fast loading 
 saveDb(txdb, "txdb_file.rds")
 txdb = loadDb("txdb_file.rds")
+```
 
+2. or get transcript database from the GTF file 
+
+```{r}
 
 # or you can obtain this from the same GTF used in the first step with :
 
-txdb_ncbi <- makeTxDbFromGFF("./mm10.ncbiRefSeq.gtf.gz",organism="Mus musculus")
+txdb_ncbi <- makeTxDbFromGFF("../data/mm10.ncbiRefSeq.gtf.gz",organism="Mus musculus")
  
 saveDb(txdb_ncbi, "txdb_ncbi_file.rds")
 txdb_ncbi = loadDb("txdb_ncbi_file.rds")
 ```
 
-The exons and coding sequences found in the database can now be extracted
+We can then extract the list of all exons and ORF from those database with the following functions:
 
 ```{r}
 exons = exonsBy(txdb, by = "tx", use.names = TRUE)
 cdss = cdsBy(txdb, by = "tx", use.names = TRUE)
+
+exons_ncbi = exonsBy(txdb_ncbi, by = "tx", use.names = TRUE)
+cdss_ncbi = cdsBy(txdb_ncbi, by = "tx", use.names = TRUE)
+
 ```
 
+
+With this information we can now plot the transcript structure for any given gene:
+
+We can plot only the gene structure with plotTranscripts:
+
+```{r}
+
+# we first select which transcript we want to plot from the metadata table: 
+
+# for all transcript of a given gene:
+selected_transcripts = transcript_metadata %>%
+  dplyr::filter(gene_name == "Actb", transcript_biotype == "protein_coding")
+
+selected_transcripts
+
+# Wt then extracty the Ids of each transcript to be plotted
+tx_ids = selected_transcripts$transcript_id
+
+# and we can plot the transcript:
+
+plotTranscripts(exons,
+                cdss,
+                tx_ids=tx_ids,
+                transcript_metadata,
+                rescale_introns = FALSE)
+
+# We can also rescale the introns if we want to focus on exons only. For this we turn the option rescale_introns to TRUE and we can also indicate the length with new_intro_length:
+
+plotTranscripts(exons,
+                cdss,
+                tx_ids=tx_ids,
+                transcript_metadata,
+                rescale_introns = TRUE,
+                ) 
+## or with minimal intron size:
+plotTranscripts(exons,
+                cdss,
+                tx_ids=tx_ids,
+                transcript_metadata,
+                rescale_introns = TRUE,
+                new_intron_length = 1,
+                
+                ) 
+
+# other useful options: 
+# new_intron_length = 50      ## change relative size of introns 
+# flanking_length = c(50,50)   ## add space on either size of plot
+# transcript_label = TRUE    ## change to FALSE to remove labels for each transcripts
+```
+
+If we want to plot coverage, we need to define a list of files 
 
 to plot coverage we need to define a list of bigwig files that will be read:
 
@@ -142,44 +221,40 @@ to plot coverage we need to define a list of bigwig files that will be read:
 
 # if bigwigs are stranded, you can make a data frame for each set
 
-sample_data_fw <- dplyr::data_frame(
-  sample_id = c("Input_1.fw", "Input_2.fw", "Input_3.fw",
-                "DF1_RIP_1.fw","DF1_RIP_2.fw","DF1_RIP_3.fw",
-                "DF2_RIP_1.fw","DF2_RIP_2.fw","DF2_RIP_3.fw",
-                "DF3_RIP_1.fw","DF3_RIP_2.fw","DF3_RIP_3.fw"),
-  sample = factor(c(rep("Input",3),rep("DF1",3),rep("DF2",3),rep("DF3",3)), levels = c("Input", "DF1","DF2","DF3")), 
-  scaling_factor = 1) #scaling factor can be used to scale coverage in individual bigwigs
+# we define a dataframe with the sample names, and factors associated with each samples:
 
-#mutate to add path and .bw extension:
+sample_data = data_frame(
 
-sample_data_fw <- sample_data_fw %>%
-  dplyr::mutate(bigWig = paste0("./BW/",sample_id,".bw"))  # change for position of files
+    sample_id = c("mNH_333", "mNH_334", "mNH_371","mNH_372","mNH_389",
+                "mNH_390","mNH_391","mNH_392","mNH_393","mNH_394",
+                "mNH_395","mNH_396","mNH_397","mNH_398","mNH_399","mNH_400"),
+  
+    Genotype = factor(c(rep("KO",4),rep("WT",8),rep("KO",4)), levels = c("WT", "KO")),
+  
+    Compartment=factor(c(rep(c("Soma","Neurites"),8)), levels = c("Soma","Neurites")),
+  
+    Condition=factor(c(rep("Ctrl",2),rep("KCl",2), rep("Ctrl",4),rep("KCl",4),rep("Ctrl",2),rep("KCl",2)), levels=c("Ctrl","KCl")),
+  
+    scaling_factor = 1)
 
-#mutate to add grouping for color and track position: if track_id=sample, each sample is on a different tract. if you assign a name ("RNAseq") to all, they will be all on the same track.
+# we then add a column with the path to the files
+sample_data = sample_data %>%
+  dplyr::mutate(bigWig = paste0("../../../bigiwg_bpm/",sample_id,".bw"))
 
-track_data_fw <- dplyr::mutate(sample_data_fw, track_id = sample, colour_group = sample)
+# We can then see the table with metadata
+sample_data
 
-
-#repeat for reverse strand if necessary:
-
-sample_data_rv = dplyr::data_frame(
-  sample_id = c("Input_1.rv", "Input_2.rv", "Input_3.rv", "DF1_RIP_1.rv","DF1_RIP_2.rv","DF1_RIP_3.rv", "DF2_RIP_1.rv","DF2_RIP_2.rv","DF2_RIP_3.rv", "DF3_RIP_1.rv","DF3_RIP_2.rv","DF3_RIP_3.rv"), 
-  sample = factor(c(rep("Input",3),rep("DF1",3),rep("DF2",3),rep("DF3",3)), levels = c("Input", "DF1","DF2","DF3")),  scaling_factor = 1)
-
-sample_data_rv = sample_data_rv %>%
-  dplyr::mutate(bigWig = paste0("./BW/",sample_id,".bw"))
-
-track_data_rv = dplyr::mutate(sample_data_rv, track_id = sample, colour_group = sample)
-
+# Finally we add a color group and track id to each sample so we can color them in the coverage track
+track_data = dplyr::mutate(sample_data, track_id = paste(Genotype,Compartment,Condition,sep = ":"), colour_group = Compartment)
 
 ```
 
-Import bed files (if wanted):
+We can also import bed files for visualization (if wanted):
 
 ```{r}
-MeRIP<-import("D:/OneDrive/OneDrive - Duke University/RNAseq/Flamand_6511/m6a/bed/MeRIP.sorted.bed", format	="bed")
+MeRIP<-BiocIO::import("D:/OneDrive/OneDrive - Duke University/RNAseq/Flamand_6511/m6a/bed/MeRIP.sorted.bed", format	="bed")
 
-DART<-import(con="D:/OneDrive/OneDrive - Duke University/RNAseq/Flamand_6511/m6a/bed/Neurons_common.bed", format="bed")
+DART<-BiocIO::import(con="D:/OneDrive/OneDrive - Duke University/RNAseq/Flamand_6511/m6a/bed/Neurons_common.bed", format="bed")
 
 # if single nucleotide resolution, you can widen the peaks for better visualization
 start(DART) <- start(DART) - 5
@@ -191,22 +266,17 @@ bed<-list(MeRIP,DART)
 names(bed)<-c("MeRIP","DART")
 ```
 
-
-We can plot only the gene structure with plotTranscripts: 
+We can plot only the gene structure and bed files with plotTranscripts by adding the bed object:
 
 ```{r}
 
-# we first select wich transcript we want to plot from the metadata table: 
-
 # for all transcript of a given gene:
 selected_transcripts = transcript_metadata %>%
-  dplyr::filter(gene_name == "Map2", transcript_biotype == "protein_coding")
+  dplyr::filter(gene_name == "Camk2a" )
 
-# or for specific transcripts:
-selected_transcripts <- transcript_metadata %>%
-  dplyr::filter(transcript_id == "ENSMUST00000156636" | transcript_id == "ENSMUST00000141148")
+selected_transcripts
 
-#get list of Ids
+# Wt then extracty the Ids of each transcript to be plotted
 tx_ids = selected_transcripts$transcript_id
 
 
@@ -214,34 +284,48 @@ plotTranscripts(exons,
                 cdss,
                 tx_ids=tx_ids,
                 transcript_metadata,
-                rescale_introns = TRUE)
+                rescale_introns = TRUE,
+                new_intron_length = 1,
+                ) 
+
+```
+with many transcript, it can be hard to make sense of gene tracks: we can select a single transcript to plot:
+```{r}
+
+selected_transcripts = transcript_metadata %>%
+  dplyr::filter(gene_name == "Camk2a", transcript_id == "ENSMUST00000102888" )
+
+selected_transcripts
+
+# Wt then extracty the Ids of each transcript to be plotted
+tx_ids = selected_transcripts$transcript_id
 
 
-#to also plot bed sites:
-  
 plotTranscripts(exons,
                 cdss,
                 tx_ids=tx_ids,
                 transcript_metadata,
                 rescale_introns = TRUE,
-                bed_sites=bed) 
-# other useful options: 
-# new_intron_length = 50      ## change relative size of introns 
-# flanking_length = c(50,50)   ## add space on either size of plot
-# transcript_label = TRUE    ## change to FALSE to remove labels for each transcripts
+                new_intron_length = 1,
+                bed_sites = bed
+                ) 
+
+
 ```
 
-We can plot the coverage with:plotCoverage()
+We can plot the coverage with the plotCoverage() function (from bigwig files)
 
 ```{r}
 
-plotCoverage(exons, # list of exons
-             cdss,  #list of cdss
-             tx_ids=tx_ids
-             transcript_metadata, # metadata to label gene name
-             track_data = track_data_fw,    # dataframe with list of bigwig files
-             fill_palette =  c("black","orange","blue","red") , # colors for each dataset (at least as much as number of conditions)
-             alpha = 0.5,  # transparency
+# in addition to the information provided above, we need to provide the metadata table create earlier with the path to bigwigs
+
+plotCoverage(exons=exons, # list of exons
+             cdss=cdss,  #list of cdss
+             tx_ids=tx_ids,
+             transcript_annotations =transcript_metadata, # metadata to label gene name
+             track_data = track_data,   
+             fill_palette =  c("black","orange") , # colors for each dataset (at least as much as number of conditions)
+             alpha = 1,  # transparency
              new_intron_length = 25,  # size of rescaled introns (defaults to 50)
              transcript_label = TRUE, 
              rescale_introns = TRUE,
@@ -255,9 +339,114 @@ plotCoverage(exons, # list of exons
 
 # grouping can be changed on the fly by changing the track_data within the plot, for example:
 
-track_data_fw %>% mutate(track_id = c(rep("Input",3),rep("RIP",9)))
+
 #would result in the coverage plot in 2 panels (input and RIP separated.)
 
 ```
 
+```{r}
 
+# When you have to many conditions, it may be easier to group them to efficiently vizualize them:
+
+# for example, if we want to group them by 2 factors instead of 3, for example (Genotype and compartments here): you can modify the track data to change the track_id field (which determines how the data is faceted)
+
+track_data %>% mutate(track_id = factor(paste(Genotype,Compartment,sep = ":"),levels=(c("WT:Soma","WT:Neurites","KO:Soma","KO:Neurites")))) %>% 
+  plotCoverage(exons=exons, # list of exons
+             cdss=cdss,  #list of cdss
+             tx_ids=tx_ids,
+             transcript_annotations =transcript_metadata, # metadata to label gene name
+             track_data = .,   
+             fill_palette =  c("blue","red") , # colors for each dataset (at least as much as number of conditions)
+             alpha = 1,  # transparency
+             new_intron_length = 25,  # size of rescaled introns (defaults to 50)
+             transcript_label = TRUE, 
+             rescale_introns = TRUE,
+             coverage_type='line_sd',   # one of: line, area, both, line_sd
+             heights=c(0.60,0.40),    # relative size of both plot in final plot (coverage plot and gene structure plot)
+             mean_only=TRUE,          # if set to false, each replicate is displayed instead of the average
+             plot_fraction = 0.5,     # subsample bigwig for faster plotting
+             flanking_length = c(50, 50), 
+             return_subplots_list =FALSE,  # return coverage and gene structure plots without combining them together. 
+             bed_sites = bed) # list of bed sites
+
+# We can also change how the track is displayed with the coverage_type: choose one of: "line", "area", "both", "line_sd"
+
+track_data %>% mutate(track_id = factor(paste(Genotype,Compartment,sep = ":"),levels=(c("WT:Soma","WT:Neurites","KO:Soma","KO:Neurites")))) %>% 
+  plotCoverage(exons=exons, # list of exons
+             cdss=cdss,  #list of cdss
+             tx_ids=tx_ids,
+             transcript_annotations =transcript_metadata, # metadata to label gene name
+             track_data = .,   
+             fill_palette =  c("blue","red") , # colors for each dataset (at least as much as number of conditions)
+             alpha = 1,  # transparency
+             new_intron_length = 25,  # size of rescaled introns (defaults to 50)
+             transcript_label = TRUE, 
+             rescale_introns = TRUE,
+             coverage_type='both',   # one of: line, area, both, line_sd
+             heights=c(0.60,0.40),    # relative size of both plot in final plot (coverage plot and gene structure plot)
+             mean_only=TRUE,          # if set to false, each replicate is displayed instead of the average
+             plot_fraction = 0.5,     # subsample bigwig for faster plotting
+             flanking_length = c(50, 50), 
+             return_subplots_list =FALSE,  # return coverage and gene structure plots without combining them together. 
+             bed_sites = bed) # list of bed sites
+
+# individual replicates can also be displayed by turning the mean_only option to false:
+
+track_data %>% mutate(track_id = factor(paste(Genotype,Compartment,sep = ":"),levels=(c("WT:Soma","WT:Neurites","KO:Soma","KO:Neurites")))) %>% 
+  plotCoverage(exons=exons, # list of exons
+             cdss=cdss,  #list of cdss
+             tx_ids=tx_ids,
+             transcript_annotations =transcript_metadata, # metadata to label gene name
+             track_data = .,   
+             fill_palette =  c("blue","red") , # colors for each dataset (at least as much as number of conditions)
+             alpha = 0.5,  # transparency
+             new_intron_length = 25,  # size of rescaled introns (defaults to 50)
+             transcript_label = TRUE, 
+             rescale_introns = TRUE,
+             coverage_type='line',   # one of: line, area, both, line_sd
+             heights=c(0.60,0.40),    # relative size of both plot in final plot (coverage plot and gene structure plot)
+             mean_only=FALSE,          # if set to false, each replicate is displayed instead of the average
+             plot_fraction = 0.5,     # subsample bigwig for faster plotting
+             flanking_length = c(50, 50), 
+             return_subplots_list =FALSE,  # return coverage and gene structure plots without combining them together. 
+             bed_sites = bed) # list of bed sites
+
+```
+
+If a transcript is on the negative strand, it will be reverse by default
+
+```{r}
+
+selected_transcripts = transcript_metadata %>%
+  dplyr::filter(gene_name == "Actb")
+
+selected_transcripts
+
+# Wt then extracty the Ids of each transcript to be plotted
+tx_ids = selected_transcripts$transcript_id
+
+
+track_data %>% mutate(track_id = factor(paste(Genotype,Compartment,sep = ":"),levels=(c("WT:Soma","WT:Neurites","KO:Soma","KO:Neurites")))) %>% 
+  plotCoverage(exons=exons, # list of exons
+             cdss=cdss,  #list of cdss
+             tx_ids=tx_ids,
+             transcript_annotations =transcript_metadata, # metadata to label gene name
+             track_data = .,   
+             fill_palette =  c("blue","red") , # colors for each dataset (at least as much as number of conditions)
+             alpha = 1,  # transparency
+             new_intron_length = 25,  # size of rescaled introns (defaults to 50)
+             transcript_label = TRUE, 
+             rescale_introns = TRUE,
+             coverage_type='both',   # one of: line, area, both, line_sd
+             heights=c(0.60,0.40),    # relative size of both plot in final plot (coverage plot and gene structure plot)
+             mean_only=TRUE,          # if set to false, each replicate is displayed instead of the average
+             plot_fraction = 0.5,     # subsample bigwig for faster plotting
+             flanking_length = c(50, 50), 
+             return_subplots_list =FALSE,  # return coverage and gene structure plots without combining them together. 
+             bed_sites = bed,
+     
+             ) # list of bed sites
+
+dplyr::mutate(track_data, .dots = stats::setNames(list(~as.character(bigWig)), c("bigWig")))
+
+```

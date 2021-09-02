@@ -12,9 +12,9 @@ plotTranscriptStructure <- function(exons_df, limits = NA, connect_exons = TRUE,
   order_func <- ifelse(diff(limits) < 0, dplyr::slice_max, dplyr::slice_min)
   
   #Extract the position for plotting transcript name
-  transcript_annot = dplyr::group_by_(exons_df, ~transcript_id) %>% 
-    dplyr::filter_(~feature_type == "exon") %>%
-    dplyr::arrange_('transcript_id', 'start') %>%
+  transcript_annot = dplyr::group_by(exons_df, transcript_id) %>% 
+    dplyr::filter(feature_type == "exon") %>%
+    dplyr::arrange('transcript_id', 'start') %>%
     order_func(start)
      # dplyr::filter(row_number() == 1)
   
@@ -71,16 +71,16 @@ plotTranscriptStructureBed <- function(exons_df, limits = NA, connect_exons = TR
                                     xlabel = "Distance from gene start (bp)", transcript_label = TRUE){
   
   #Extract the position for plotting transcript name
-  transcript_annot = dplyr::group_by_(exons_df, ~transcript_id) %>% 
-    dplyr::filter_(~feature_type == "exon") %>%
-    dplyr::arrange_('transcript_id', 'start') %>%
+  transcript_annot = dplyr::group_by(exons_df, transcript_id) %>% 
+    dplyr::filter(feature_type == "exon") %>%
+    dplyr::arrange('transcript_id', 'start') %>%
     dplyr::filter(row_number() == 1)
 
   # return(transcript_annot)
   
-  bed_annot = dplyr::group_by_(exons_df, ~transcript_id) %>% 
-    dplyr::filter_(~feature_type == "bed") %>%
-    dplyr::arrange_('transcript_id', 'start') %>%
+  bed_annot = dplyr::group_by(exons_df, transcript_id) %>% 
+    dplyr::filter(feature_type == "bed") %>%
+    dplyr::arrange('transcript_id', 'start') %>%
     dplyr::filter(row_number() == 1)
   
   # return(bed_annot)

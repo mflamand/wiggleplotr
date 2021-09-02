@@ -185,7 +185,7 @@ plotCoverage <- function(exons, cdss = NULL,tx_ids, transcript_annotations = NUL
                         plot_fraction = 0.1, heights = c(0.75, 0.25), alpha = 1,
                         fill_palette = c("#a1dab4","#41b6c4","#225ea8"), mean_only = TRUE, 
                         connect_exons = TRUE, transcript_label = TRUE, return_subplots_list = FALSE,
-                        region_coords = NULL, coverage_type = "area", linesize=0.5, bed_sites=NULL){
+                        region_coords = NULL, coverage_type = "area", linesize=0.5, bed_sites=NULL, no_reverse=FALSE){
   
   exons<- exons[tx_ids]
   
@@ -303,9 +303,7 @@ plotCoverage <- function(exons, cdss = NULL,tx_ids, transcript_annotations = NUL
 
   #Calculate mean coverage within each track and colour group
   if(mean_only){  coverage_df = meanCoverage(coverage_df) }
-  
-  # return(coverage_df)
-  
+
   #Make plots
   #Construct transcript structure data.frame from ranges lists
   limits = c( min(IRanges::start(tx_annotations$new_introns)), max(IRanges::end(tx_annotations$new_introns)))
@@ -314,7 +312,7 @@ plotCoverage <- function(exons, cdss = NULL,tx_ids, transcript_annotations = NUL
   # 
   transcript_struct = prepareTranscriptStructureForPlotting(tx_annotations$exon_ranges, 
                                                     tx_annotations$cds_ranges, plotting_annotations,tx_annotations$bed_ranges)
-  if(unique(transcript_struct$strand) == -1){
+  if(unique(transcript_struct$strand[1]) == -1 & no_reverse!=TRUE){
     transcript_struct <-
       transcript_struct %>%
       dplyr::mutate(transcript_label = paste0(sub("< ", "", transcript_label), " >"))
@@ -403,7 +401,7 @@ plotCoverageBedGraph <- function(exons, cdss = NULL,tx_ids, transcript_annotatio
                          heights = c(0.75, 0.25), alpha = 1,
                          fill_palette = c("#a1dab4","#41b6c4","#225ea8"), 
                          connect_exons = TRUE, transcript_label = TRUE, return_subplots_list = FALSE,
-                         region_coords = NULL, linesize=0.5, bed_sites=NULL){
+                         region_coords = NULL, linesize=0.5, bed_sites=NULL,no_reverse=FALSE){
   
   exons<- exons[tx_ids]
   
@@ -521,7 +519,7 @@ plotCoverageBedGraph <- function(exons, cdss = NULL,tx_ids, transcript_annotatio
   # 
   transcript_struct = prepareTranscriptStructureForPlotting(tx_annotations$exon_ranges, 
                                                             tx_annotations$cds_ranges, plotting_annotations,tx_annotations$bed_ranges)
-  if(unique(transcript_struct$strand) == -1){
+  if(unique(transcript_struct$strand[1]) == -1 & no_reverse!=TRUE){
     transcript_struct <-
       transcript_struct %>%
       dplyr::mutate(transcript_label = paste0(sub("< ", "", transcript_label), " >"))
