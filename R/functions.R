@@ -155,12 +155,13 @@ pasteFactors <- function(factor1, factor2){
 
 # Calculate mean coverage within each track_id and colour_group
 meanCoverage <- function(coverage_df){
-  coverage_df = dplyr::group_by_(coverage_df, "track_id", "colour_group", "bins") %>% 
+  coverage_df <- coverage_df %>%  dplyr::group_by( track_id, colour_group, bins) %>% 
     # dplyr::summarise_(.dots = stats::setNames(list(~mean(coverage)), c("coverage"))) %>%
      dplyr::summarise(sd=sd(coverage),cov=mean(coverage)) %>%
     dplyr::mutate(coverage=cov) %>% dplyr::select(-cov) %>% 
      dplyr::ungroup() %>% # It's important to do ungroup before mutate, or you get unexpected factor results
-    dplyr::mutate_(.dots = stats::setNames(list(~pasteFactors(as.factor(track_id), as.factor(colour_group))),c("sample_id")) ) #Construct a new sample id for mean vector
+    dplyr::mutate(sample_id=pasteFactors(as.factor(track_id), as.factor(colour_group)))
+    # dplyr::mutate_(.dots = stats::setNames(list(~pasteFactors(as.factor(track_id), as.factor(colour_group))),c("sample_id")) ) #Construct a new sample id for mean vector
   
   return(coverage_df)
 }

@@ -210,7 +210,8 @@ plotCoverage <- function(exons, cdss = NULL,tx_ids, transcript_annotations = NUL
   #Make sure that bigWig column is not a factor
   if(is.factor(track_data$bigWig)){
     warning("bigWig column in track_data data.frame is a factor, coverting to a character vector.")
-    track_data = dplyr::mutate_(track_data, .dots = stats::setNames(list(~as.character(bigWig)), c("bigWig")))
+    # track_data = dplyr::mutate_(track_data, .dots = stats::setNames(list(~as.character(bigWig)), c("bigWig")))
+    track_data = dplyr::mutate(track_data, bigWig=as.character(bigWig))
   }
   
   #Check transcript annotation
@@ -297,13 +298,19 @@ plotCoverage <- function(exons, cdss = NULL,tx_ids, transcript_annotations = NUL
   #Convert to data frame and plot
   coverage_df = purrr::map_df(coverage_list, identity, .id = "sample_id") %>% 
     as.data.frame() %>%
-    dplyr::mutate_(.dots = stats::setNames(list(~as.character(sample_id)), c("sample_id")) ) #Convert factor to character
+    # dplyr::mutate_(.dots = stats::setNames(list(~as.character(sample_id)), c("sample_id")) ) #Convert factor to character
+    dplyr::mutate(sample_id=as.character(sample_id)) #Convert factor to character
   coverage_df = dplyr::left_join(coverage_df, track_data, by = "sample_id") %>%
-    dplyr::mutate_(.dots = stats::setNames(list(~coverage/scaling_factor), c("coverage")) ) #Normalize by library size
+    # dplyr::mutate_(.dots = stats::setNames(list(~coverage/scaling_factor), c("coverage")) ) #Normalize by library size
+    dplyr::mutate(coverage=coverage/scaling_factor) #Normalize by library size
+  
+
 
   #Calculate mean coverage within each track and colour group
   if(mean_only){  coverage_df = meanCoverage(coverage_df) }
 
+  # return(coverage_df)
+  
   #Make plots
   #Construct transcript structure data.frame from ranges lists
   limits = c( min(IRanges::start(tx_annotations$new_introns)), max(IRanges::end(tx_annotations$new_introns)))
@@ -424,7 +431,7 @@ plotCoverageBedGraph <- function(exons, cdss = NULL,tx_ids, transcript_annotatio
   #Make sure that bigWig column is not a factor
   if(is.factor(track_data$bedgraph)){
     warning("bedgraph column in track_data data.frame is a factor, coverting to a character vector.")
-    track_data = dplyr::mutate_(track_data, .dots = stats::setNames(list(~as.character(bedgraph)), c("bedgraph")))
+    track_data = dplyr::mutate(track_data, bedgraph=as.character(bedgraph))
   }
   
   #Check transcript annotation
@@ -505,9 +512,9 @@ plotCoverageBedGraph <- function(exons, cdss = NULL,tx_ids, transcript_annotatio
   #Convert to data frame and plot
   coverage_df = purrr::map_df(coverage_list, identity, .id = "sample_id") %>% 
     as.data.frame() %>%
-    dplyr::mutate_(.dots = stats::setNames(list(~as.character(sample_id)), c("sample_id")) ) #Convert factor to character
+    dplyr::mutate( sample_id= as.character(sample_id)) #Convert factor to character
   coverage_df = dplyr::left_join(coverage_df, track_data, by = "sample_id") %>%
-    dplyr::mutate_(.dots = stats::setNames(list(~coverage/scaling_factor), c("coverage")) ) #Normalize by library size
+    dplyr::mutate(coverage=coverage/scaling_factor) #Normalize by library size
  
   # return(coverage_df)
   

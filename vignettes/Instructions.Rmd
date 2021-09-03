@@ -158,8 +158,6 @@ We can then extract the list of all exons and ORF from those database with the f
 exons = exonsBy(txdb, by = "tx", use.names = TRUE)
 cdss = cdsBy(txdb, by = "tx", use.names = TRUE)
 
-exons_ncbi = exonsBy(txdb_ncbi, by = "tx", use.names = TRUE)
-cdss_ncbi = cdsBy(txdb_ncbi, by = "tx", use.names = TRUE)
 
 ```
 
@@ -239,7 +237,7 @@ sample_data = data_frame(
 
 # we then add a column with the path to the files
 sample_data = sample_data %>%
-  dplyr::mutate(bigWig = paste0("../../../bigiwg_bpm/",sample_id,".bw"))
+  dplyr::mutate(bigWig = paste0("../../bigiwg_bpm/",sample_id,".bw"))
 
 # We can then see the table with metadata
 sample_data
@@ -444,9 +442,88 @@ track_data %>% mutate(track_id = factor(paste(Genotype,Compartment,sep = ":"),le
              flanking_length = c(50, 50), 
              return_subplots_list =FALSE,  # return coverage and gene structure plots without combining them together. 
              bed_sites = bed,
-     
              ) # list of bed sites
 
-dplyr::mutate(track_data, .dots = stats::setNames(list(~as.character(bigWig)), c("bigWig")))
 
 ```
+You can turn off this off with : no_reverse=TRUE
+
+
+```{r}
+
+track_data %>% mutate(track_id = factor(paste(Genotype,Compartment,sep = ":"),levels=(c("WT:Soma","WT:Neurites","KO:Soma","KO:Neurites")))) %>% 
+  plotCoverage(exons=exons, # list of exons
+             cdss=cdss,  #list of cdss
+             tx_ids=tx_ids,
+             transcript_annotations =transcript_metadata, # metadata to label gene name
+             track_data = .,   
+             fill_palette =  c("blue","red") , # colors for each dataset (at least as much as number of conditions)
+             alpha = 1,  # transparency
+             new_intron_length = 25,  # size of rescaled introns (defaults to 50)
+             transcript_label = TRUE, 
+             rescale_introns = TRUE,
+             coverage_type='both',   # one of: line, area, both, line_sd
+             heights=c(0.60,0.40),    # relative size of both plot in final plot (coverage plot and gene structure plot)
+             mean_only=TRUE,          # if set to false, each replicate is displayed instead of the average
+             plot_fraction = 0.5,     # subsample bigwig for faster plotting
+             flanking_length = c(50, 50), 
+             return_subplots_list =FALSE,  # return coverage and gene structure plots without combining them together. 
+             bed_sites = bed,
+             no_reverse = TRUE
+             ) # list of bed sites
+
+
+```
+
+
+### Plotting bedgraph files
+
+The principle is the same for bedgraph files: we need to provide a table with the path to the bedgraph files
+
+For example: 
+
+```{r}
+
+sample_data <- data_frame(
+  sample_id = c("WT", "KO"),
+  sample = factor(c("WT", "KO"), levels = c("WT", "KO")), 
+  scaling_factor = 1) 
+
+sample_data <- sample_data %>%
+  dplyr::mutate(bedgraph = paste0("./",sample_id,".bedgraph"))  # change for position of files
+
+track_data <- dplyr::mutate(sample_data, track_id = sample, colour_group = sample)
+
+
+```
+
+Now we can plot using the plotCoverageBedGraph function with very similar options. However, this function does not average replicates. you will need to compute this prior to plotting the data.
+
+```{r}
+
+selected_transcripts = transcript_metadata %>%
+  dplyr::filter(gene_name == "Ntrk2",transcript_biotype=="protein_coding",(transcript_id=="ENSMUST00000079828" | transcript_id =="ENSMUST00000109838"))
+
+selected_transcripts
+
+# Wt then extracty the Ids of each transcript to be plotted
+tx_ids = selected_transcripts$transcript_id
+
+
+plotCoverageBedGraph(exons,
+                     cdss,
+                     fill_palette = c("black","black"),
+                     tx_ids=tx_ids,
+                     transcript_metadata,
+                     track_data = track_data,
+                     new_intron_length = 1, 
+                     transcript_label = TRUE,
+                     rescale_introns = TRUE,
+                     return_subplots_list = FALSE,
+                    )
+```
+
+Plots can also be returned as individual panels to change aesthetics for final plotting:
+
+
+
