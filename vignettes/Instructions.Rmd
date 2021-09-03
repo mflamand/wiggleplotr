@@ -95,7 +95,7 @@ transcript_metadata = readRDS("metadata.rds")
 
 #this may be easier if you are after NCBI RefSeq or UCSC annotations 
 
-temp<-readr::read_tsv("../data/mm10.ncbiRefSeq.gtf.gz",col_names =c("chr","source","type","start","end","score","strand","frame","attributes"))
+temp<-readr::read_tsv("../data/mm10.ncbiRefSeq2.gtf.gz",col_names =c("chr","source","type","start","end","score","strand","frame","attributes"))
 
 transcript_metadata_ncbi<- temp %>% filter(type=="transcript"|type=="CDS")%>%
   tidyr::separate(.,col="attributes",into=c("gene_id","transcript_id","gene_name"),sep=";") %>% 
@@ -146,7 +146,7 @@ txdb = loadDb("txdb_file.rds")
 
 # or you can obtain this from the same GTF used in the first step with :
 
-txdb_ncbi <- makeTxDbFromGFF("../data/mm10.ncbiRefSeq.gtf.gz",organism="Mus musculus")
+txdb_ncbi <- makeTxDbFromGFF("../data/mm10.ncbiRefSeq2.gtf.gz",organism="Mus musculus")
  
 saveDb(txdb_ncbi, "txdb_ncbi_file.rds")
 txdb_ncbi = loadDb("txdb_ncbi_file.rds")
@@ -157,6 +157,9 @@ We can then extract the list of all exons and ORF from those database with the f
 ```{r}
 exons = exonsBy(txdb, by = "tx", use.names = TRUE)
 cdss = cdsBy(txdb, by = "tx", use.names = TRUE)
+
+exons_ncbi = exonsBy(txdb_ncbi, by = "tx", use.names = TRUE)
+cdss_ncbi = cdsBy(txdb_ncbi, by = "tx", use.names = TRUE)
 
 
 ```
@@ -237,7 +240,7 @@ sample_data = data_frame(
 
 # we then add a column with the path to the files
 sample_data = sample_data %>%
-  dplyr::mutate(bigWig = paste0("../../bigiwg_bpm/",sample_id,".bw"))
+  dplyr::mutate(bigWig = paste0("../../../bigiwg_bpm/",sample_id,".bw"))
 
 # We can then see the table with metadata
 sample_data
@@ -322,9 +325,9 @@ plotCoverage(exons=exons, # list of exons
              tx_ids=tx_ids,
              transcript_annotations =transcript_metadata, # metadata to label gene name
              track_data = track_data,   
-             fill_palette =  c("black","orange") , # colors for each dataset (at least as much as number of conditions)
+             fill_palette =  c("red","blue") , # colors for each dataset (at least as much as number of conditions)
              alpha = 1,  # transparency
-             new_intron_length = 25,  # size of rescaled introns (defaults to 50)
+             new_intron_length = 1,  # size of rescaled introns (defaults to 50)
              transcript_label = TRUE, 
              rescale_introns = TRUE,
              coverage_type='line_sd',   # one of: line, area, both, line_sd
@@ -397,14 +400,14 @@ track_data %>% mutate(track_id = factor(paste(Genotype,Compartment,sep = ":"),le
              transcript_annotations =transcript_metadata, # metadata to label gene name
              track_data = .,   
              fill_palette =  c("blue","red") , # colors for each dataset (at least as much as number of conditions)
-             alpha = 0.5,  # transparency
-             new_intron_length = 25,  # size of rescaled introns (defaults to 50)
+             alpha = 1,  # transparency
+             new_intron_length = 1,  # size of rescaled introns (defaults to 50)
              transcript_label = TRUE, 
              rescale_introns = TRUE,
              coverage_type='line',   # one of: line, area, both, line_sd
              heights=c(0.60,0.40),    # relative size of both plot in final plot (coverage plot and gene structure plot)
              mean_only=FALSE,          # if set to false, each replicate is displayed instead of the average
-             plot_fraction = 0.5,     # subsample bigwig for faster plotting
+             plot_fraction = 0.05,     # subsample bigwig for faster plotting
              flanking_length = c(50, 50), 
              return_subplots_list =FALSE,  # return coverage and gene structure plots without combining them together. 
              bed_sites = bed) # list of bed sites
@@ -415,7 +418,7 @@ If a transcript is on the negative strand, it will be reverse by default
 
 ```{r}
 
-selected_transcripts = transcript_metadata %>%
+selected_transcripts = transcript_metadata_ncbi %>%
   dplyr::filter(gene_name == "Actb")
 
 selected_transcripts
@@ -425,24 +428,22 @@ tx_ids = selected_transcripts$transcript_id
 
 
 track_data %>% mutate(track_id = factor(paste(Genotype,Compartment,sep = ":"),levels=(c("WT:Soma","WT:Neurites","KO:Soma","KO:Neurites")))) %>% 
-  plotCoverage(exons=exons, # list of exons
-             cdss=cdss,  #list of cdss
+  plotCoverage(exons=exons_ncbi, # list of exons
+             cdss=cdss_ncbi,  #list of cdss
              tx_ids=tx_ids,
-             transcript_annotations =transcript_metadata, # metadata to label gene name
+             transcript_annotations =transcript_metadata_ncbi, # metadata to label gene name
              track_data = .,   
              fill_palette =  c("blue","red") , # colors for each dataset (at least as much as number of conditions)
              alpha = 1,  # transparency
-             new_intron_length = 25,  # size of rescaled introns (defaults to 50)
+             new_intron_length = 1,  # size of rescaled introns (defaults to 50)
              transcript_label = TRUE, 
              rescale_introns = TRUE,
              coverage_type='both',   # one of: line, area, both, line_sd
              heights=c(0.60,0.40),    # relative size of both plot in final plot (coverage plot and gene structure plot)
              mean_only=TRUE,          # if set to false, each replicate is displayed instead of the average
              plot_fraction = 0.5,     # subsample bigwig for faster plotting
-             flanking_length = c(50, 50), 
-             return_subplots_list =FALSE,  # return coverage and gene structure plots without combining them together. 
-             bed_sites = bed,
-             ) # list of bed sites
+             return_subplots_list =FALSE,  # return coverage and gene structure plots without combining them together.
+             bed_sites=bed) # list of bed sites
 
 
 ```
@@ -452,24 +453,23 @@ You can turn off this off with : no_reverse=TRUE
 ```{r}
 
 track_data %>% mutate(track_id = factor(paste(Genotype,Compartment,sep = ":"),levels=(c("WT:Soma","WT:Neurites","KO:Soma","KO:Neurites")))) %>% 
-  plotCoverage(exons=exons, # list of exons
-             cdss=cdss,  #list of cdss
+  plotCoverage(exons=exons_ncbi, # list of exons
+             cdss=cdss_ncbi,  #list of cdss
              tx_ids=tx_ids,
-             transcript_annotations =transcript_metadata, # metadata to label gene name
+             transcript_annotations =transcript_metadata_ncbi, # metadata to label gene name
              track_data = .,   
              fill_palette =  c("blue","red") , # colors for each dataset (at least as much as number of conditions)
              alpha = 1,  # transparency
-             new_intron_length = 25,  # size of rescaled introns (defaults to 50)
+             new_intron_length = 1,  # size of rescaled introns (defaults to 50)
              transcript_label = TRUE, 
              rescale_introns = TRUE,
              coverage_type='both',   # one of: line, area, both, line_sd
              heights=c(0.60,0.40),    # relative size of both plot in final plot (coverage plot and gene structure plot)
              mean_only=TRUE,          # if set to false, each replicate is displayed instead of the average
              plot_fraction = 0.5,     # subsample bigwig for faster plotting
-             flanking_length = c(50, 50), 
              return_subplots_list =FALSE,  # return coverage and gene structure plots without combining them together. 
-             bed_sites = bed,
-             no_reverse = TRUE
+             no_reverse = TRUE,
+             bed_sites = bed
              ) # list of bed sites
 
 
@@ -512,7 +512,7 @@ tx_ids = selected_transcripts$transcript_id
 
 plotCoverageBedGraph(exons,
                      cdss,
-                     fill_palette = c("black","black"),
+                     fill_palette = c("black","red"),
                      tx_ids=tx_ids,
                      transcript_metadata,
                      track_data = track_data,
@@ -523,7 +523,78 @@ plotCoverageBedGraph(exons,
                     )
 ```
 
-Plots can also be returned as individual panels to change aesthetics for final plotting:
 
+### advanced options
+
+gene structure and coverage plots can also be returned as individual panels to change aesthetics for final plotting:
+
+We can define theme functions for each subplots (gene track and gene structure) 
+```{r}
+
+theme_a <- function( ){
+  theme(#panel.grid.major.y = element_line(color="gray95", size=0.125),
+        axis.text.y = element_text(size=4, color="black", hjust=1,margin = margin(r = 0.1)),
+        axis.ticks.length.y = unit(.1, "line"),
+        panel.border = element_rect(color="black", size=0.25),
+        strip.background = element_blank(),
+        strip.text.y = element_blank(),
+        axis.title = element_text(size=6, color="black",margin = margin(r = 0.5)),
+        axis.ticks.y = element_line(color="black",size=0.25),
+        axis.line.y = element_line(color="black",size=0.25),
+        plot.margin=unit(c(0,0,0,0),"line"), panel.spacing = unit(0.2,"line")
+        )
+}
+
+theme_b <- function(){
+   theme(panel.border = element_rect(color="black",size=0.25),
+        axis.text.x = element_text(size=5, color="black",margin = margin(t = 0)),
+        axis.title.x = element_text(size=6, color="black",margin = margin(t = 0.5)), 
+        axis.ticks.length.x = unit(.1, "line"),
+        strip.background = element_blank(),
+        strip.text = element_blank(),
+        axis.ticks.x = element_line(color="black"),
+        plot.margin=unit(c(-0.1,0,0,0),"line"))
+}
+```
+
+when plotting bigwigs or bedgraph, you can use the return_subplots_list option to return individual plots that can be edited with ggplot
+
+```{r}
+plots<-plotCoverageBedGraph(exons,
+                     cdss,
+                     fill_palette = c("black","red"),
+                     tx_ids=tx_ids,
+                     transcript_metadata,
+                     track_data = track_data,
+                     new_intron_length = 1, 
+                     transcript_label = FALSE,
+                     rescale_introns = TRUE,
+                     return_subplots_list = TRUE,
+                    )
+plots[[1]]
+
+plots[[2]]
+
+```
+
+```{r, fig.height=1.4, fig.width=2.4}
+p1<-plots[[1]]+
+  theme_a()+
+  scale_y_continuous(labels = scales::percent)
+ 
+p1 
+
+
+p2<-plots[[2]]+labs(x="Distance from mRNA start (nt)")+
+  theme_b()
+p2
+
+# and we can rebuild the final plot using cowplots
+
+cowplot::plot_grid(p1,p2, rel_heights =  c(2,1), nrow=2, align = "v",labels = "Ntrk2",label_size=6,label_fontface="italic",label_x=0.8)
+
+
+# these plots can then be saved with the ggsave() function
+```
 
 

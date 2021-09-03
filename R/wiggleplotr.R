@@ -536,10 +536,10 @@ plotCoverageBedGraph <- function(exons, cdss = NULL,tx_ids, transcript_annotatio
   
   if(!is.null(bed_sites)){
     tx_structure = plotTranscriptStructureBed(transcript_struct, limits, connect_exons = connect_exons, xlabel = xlabel, 
-                                              transcript_label = transcript_label)
+                                              transcript_label = transcript_label,no_reverse=no_reverse)
   }else{
     tx_structure = plotTranscriptStructure(transcript_struct, limits, connect_exons = connect_exons, xlabel = xlabel, 
-                                           transcript_label = transcript_label)
+                                           transcript_label = transcript_label,no_reverse=no_reverse)
   }
   
   coverage_plot = makeBedGraphPlot(coverage_df, limits, alpha, fill_palette, linesize=linesize)

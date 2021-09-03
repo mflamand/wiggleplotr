@@ -1,7 +1,7 @@
 plotTranscriptStructure <- function(exons_df, limits = NA, connect_exons = TRUE,  
-                                    xlabel = "Distance from gene start (bp)", transcript_label = TRUE){
+                                    xlabel = "Distance from gene start (bp)", transcript_label = TRUE,no_reverse=FALSE){
   
-  if(diff(limits) < 0){
+  if(diff(limits) < 0 & no_reverse==FALSE){
     length_mRNA<-max(exons_df$end)
     exons_df<- exons_df %>% 
       dplyr::mutate(new_start=length_mRNA-end,new_end=length_mRNA-start, start=new_start,end=new_end) %>%
@@ -50,10 +50,10 @@ plotTranscriptStructure <- function(exons_df, limits = NA, connect_exons = TRUE,
     scale_fill_manual(values = c("black","black")) + 
     scale_colour_manual(values = c("black","black"))
   if(all(!is.na(limits))){
-    if(diff(limits) < 0){
+    if(diff(limits) < 0 & no_reverse==FALSE){
       limits <- rev(limits)
      }
-      plot = plot + scale_x_continuous(expand = c(0,0)) +
+      plot = plot + scale_x_continuous(expand = c(0.01,0)) +
       coord_cartesian(xlim = limits)
   }
   if(transcript_label){
@@ -68,20 +68,32 @@ plotTranscriptStructure <- function(exons_df, limits = NA, connect_exons = TRUE,
 }
 
 plotTranscriptStructureBed <- function(exons_df, limits = NA, connect_exons = TRUE,  
-                                    xlabel = "Distance from gene start (bp)", transcript_label = TRUE){
+                                    xlabel = "Distance from gene start (bp)", transcript_label = TRUE, no_reverse=FALSE){
+  
+  if(diff(limits) < 0 & no_reverse==FALSE){
+    length_mRNA<-max(exons_df$end)
+    exons_df<- exons_df %>% 
+      dplyr::mutate(new_start=length_mRNA-end,new_end=length_mRNA-start, start=new_start,end=new_end) %>%
+      dplyr::select(-new_start,-new_end)
+  }
+  
+  
+  order_func <- ifelse(diff(limits) < 0 , dplyr::slice_max, dplyr::slice_min)
   
   #Extract the position for plotting transcript name
   transcript_annot = dplyr::group_by(exons_df, transcript_id) %>% 
     dplyr::filter(feature_type == "exon") %>%
     dplyr::arrange('transcript_id', 'start') %>%
-    dplyr::filter(row_number() == 1)
+    order_func(start)
+    # dplyr::filter(row_number() == 1)
 
   # return(transcript_annot)
   
   bed_annot = dplyr::group_by(exons_df, transcript_id) %>% 
     dplyr::filter(feature_type == "bed") %>%
     dplyr::arrange('transcript_id', 'start') %>%
-    dplyr::filter(row_number() == 1)
+    order_func(start)
+    # dplyr::filter(row_number() == 1)
   
   # return(bed_annot)
   
@@ -115,10 +127,13 @@ plotTranscriptStructureBed <- function(exons_df, limits = NA, connect_exons = TR
     xlab(xlabel) +
     facet_grid(type~.) +
     scale_y_continuous(expand = c(0.2,0.15)) +
-    scale_fill_manual(values = c("#347deb","black","black")) + 
-    scale_colour_manual(values = c("#347deb","black","black"))
+    scale_fill_manual(values = c("navy","black","black")) + 
+    scale_colour_manual(values = c("navy","black","black"))
   if(all(!is.na(limits))){
-    plot = plot + scale_x_continuous(expand = c(0,0)) +
+    if(diff(limits) < 0 & no_reverse==FALSE){
+      limits <- rev(limits)
+    }
+    plot = plot + scale_x_continuous(expand = c(0.01,0)) +
       coord_cartesian(xlim = limits)
   }
   if(transcript_label){
@@ -163,7 +178,7 @@ makeCoveragePlot <- function(coverage_df, limits, alpha, fill_palette, coverage_
   coverage_plot = coverage_plot +
     facet_grid(track_id~.) +
     dataTrackTheme() + 
-    scale_x_continuous(expand = c(0,0)) +
+    scale_x_continuous(expand = c(0.01,0)) +
     scale_y_continuous(expand = c(0,0)) +
     coord_cartesian(xlim = limits) +
     scale_color_manual(values = fill_palette) +
@@ -182,16 +197,16 @@ makeBedGraphPlot <- function(coverage_df, limits, alpha, fill_palette, coverage_
   #Choose between plotting a line and plotting area
   
     coverage_plot <- coverage_plot +
-      geom_line(aes_(fill = ~colour_group), alpha = alpha, position = "identity", size=linesize)
+      geom_line(aes_(color = ~colour_group), alpha = alpha, position = "identity", size=linesize)
    
   coverage_plot = coverage_plot +
     facet_grid(track_id~.) +
     dataTrackTheme() + 
-    scale_x_continuous(expand = c(0,0)) +
+    scale_x_continuous(expand = c(0.01,0)) +
     scale_y_continuous(expand = c(0,c(0.05))) +
     coord_cartesian(xlim = limits) +
     scale_color_manual(values = fill_palette) +
-    scale_fill_manual(values = fill_palette) +
+    # scale_fill_manual(values = fill_palette) +
     ylab("%C-to-U")
   return(coverage_plot)
 }
