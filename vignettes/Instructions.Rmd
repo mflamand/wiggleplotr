@@ -95,7 +95,7 @@ transcript_metadata = readRDS("metadata.rds")
 
 #this may be easier if you are after NCBI RefSeq or UCSC annotations 
 
-temp<-readr::read_tsv("../data/mm10.ncbiRefSeq2.gtf.gz",col_names =c("chr","source","type","start","end","score","strand","frame","attributes"))
+temp<-readr::read_tsv("../data/mm10.ncbiRefSeq.gtf.gz",col_names =c("chr","source","type","start","end","score","strand","frame","attributes"))
 
 transcript_metadata_ncbi<- temp %>% filter(type=="transcript"|type=="CDS")%>%
   tidyr::separate(.,col="attributes",into=c("gene_id","transcript_id","gene_name"),sep=";") %>% 
@@ -111,7 +111,7 @@ cds_list<-unique((transcript_metadata_ncbi %>% filter(type=="CDS"))$transcript_i
  rm(temp,cds_list)
 
 saveRDS(transcript_metadata_ncbi, "metadata_ncbi.rds")
-#transcript_metadata_ncbi = readRDS("metadata_ncbi.rds")
+transcript_metadata_ncbi = readRDS("metadata_ncbi.rds")
 
 
 ```
@@ -146,7 +146,7 @@ txdb = loadDb("txdb_file.rds")
 
 # or you can obtain this from the same GTF used in the first step with :
 
-txdb_ncbi <- makeTxDbFromGFF("../data/mm10.ncbiRefSeq2.gtf.gz",organism="Mus musculus")
+txdb_ncbi <- makeTxDbFromGFF("../data/mm10.ncbiRefSeq.gtf.gz",organism="Mus musculus")
  
 saveDb(txdb_ncbi, "txdb_ncbi_file.rds")
 txdb_ncbi = loadDb("txdb_ncbi_file.rds")
@@ -210,7 +210,6 @@ plotTranscripts(exons,
 
 # other useful options: 
 # new_intron_length = 50      ## change relative size of introns 
-# flanking_length = c(50,50)   ## add space on either size of plot
 # transcript_label = TRUE    ## change to FALSE to remove labels for each transcripts
 ```
 
@@ -240,7 +239,7 @@ sample_data = data_frame(
 
 # we then add a column with the path to the files
 sample_data = sample_data %>%
-  dplyr::mutate(bigWig = paste0("../../../bigiwg_bpm/",sample_id,".bw"))
+  dplyr::mutate(bigWig = paste0("C:/Users/mathi/OneDrive - Duke University/RNAseq/Flamand_6511/bigiwg_bpm/",sample_id,".bw"))
 
 # We can then see the table with metadata
 sample_data
@@ -253,9 +252,9 @@ track_data = dplyr::mutate(sample_data, track_id = paste(Genotype,Compartment,Co
 We can also import bed files for visualization (if wanted):
 
 ```{r}
-MeRIP<-BiocIO::import("D:/OneDrive/OneDrive - Duke University/RNAseq/Flamand_6511/m6a/bed/MeRIP.sorted.bed", format	="bed")
+MeRIP<-BiocIO::import("/Users/mathi/OneDrive - Duke University/RNAseq/Flamand_6511/m6a/bed/MeRIP.sorted.bed", format	="bed")
 
-DART<-BiocIO::import(con="D:/OneDrive/OneDrive - Duke University/RNAseq/Flamand_6511/m6a/bed/Neurons_common.bed", format="bed")
+DART<-BiocIO::import(con="/Users/mathi/OneDrive - Duke University/RNAseq/Flamand_6511/m6a/bed/Neurons_common.bed", format="bed")
 
 # if single nucleotide resolution, you can widen the peaks for better visualization
 start(DART) <- start(DART) - 5
@@ -287,6 +286,7 @@ plotTranscripts(exons,
                 transcript_metadata,
                 rescale_introns = TRUE,
                 new_intron_length = 1,
+                bed_sites=bed
                 ) 
 
 ```
@@ -334,14 +334,9 @@ plotCoverage(exons=exons, # list of exons
              heights=c(0.60,0.40),    # relative size of both plot in final plot (coverage plot and gene structure plot)
              mean_only=TRUE,          # if set to false, each replicate is displayed instead of the average
              plot_fraction = 0.5,     # subsample bigwig for faster plotting
-             flanking_length = c(50, 50), 
-             return_subplots_list =FALSE,  # return coverage and gene structure plots without combining them together. 
+            return_subplots_list =FALSE,  # return coverage and gene structure plots without combining them together. 
              bed_sites = bed) # list of bed sites
 
-# grouping can be changed on the fly by changing the track_data within the plot, for example:
-
-
-#would result in the coverage plot in 2 panels (input and RIP separated.)
 
 ```
 
@@ -351,7 +346,7 @@ plotCoverage(exons=exons, # list of exons
 
 # for example, if we want to group them by 2 factors instead of 3, for example (Genotype and compartments here): you can modify the track data to change the track_id field (which determines how the data is faceted)
 
-track_data %>% mutate(track_id = factor(paste(Genotype,Compartment,sep = ":"),levels=(c("WT:Soma","WT:Neurites","KO:Soma","KO:Neurites")))) %>% 
+track_data %>% filter(Condition == "Ctrl") %>% 
   plotCoverage(exons=exons, # list of exons
              cdss=cdss,  #list of cdss
              tx_ids=tx_ids,
@@ -466,7 +461,7 @@ track_data %>% mutate(track_id = factor(paste(Genotype,Compartment,sep = ":"),le
              coverage_type='both',   # one of: line, area, both, line_sd
              heights=c(0.60,0.40),    # relative size of both plot in final plot (coverage plot and gene structure plot)
              mean_only=TRUE,          # if set to false, each replicate is displayed instead of the average
-             plot_fraction = 0.5,     # subsample bigwig for faster plotting
+             plot_fraction = 0.05,     # subsample bigwig for faster plotting
              return_subplots_list =FALSE,  # return coverage and gene structure plots without combining them together. 
              no_reverse = TRUE,
              bed_sites = bed
@@ -593,7 +588,7 @@ p2
 
 cowplot::plot_grid(p1,p2, rel_heights =  c(2,1), nrow=2, align = "v",labels = "Ntrk2",label_size=6,label_fontface="italic",label_x=0.8)
 
-
+ggsave("test.svg", height = 1.4, width = 2.4)
 # these plots can then be saved with the ggsave() function
 ```
 
