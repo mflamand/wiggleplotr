@@ -195,9 +195,13 @@ makeBedGraphPlot <- function(coverage_df, limits, alpha, fill_palette, coverage_
     geom_blank() +
     theme_light()
   #Choose between plotting a line and plotting area
-  
-    coverage_plot <- coverage_plot +
+  coverage_plot <- coverage_plot +
       geom_line(aes_(color = ~colour_group), alpha = alpha, position = "identity", size=linesize)
+  
+  if (coverage_type == "area"){
+    coverage_plot = coverage_plot + 
+      geom_area(aes_(fill = ~colour_group), alpha = alpha, position = "identity")
+  }
    
   coverage_plot = coverage_plot +
     facet_grid(track_id~.) +
@@ -206,7 +210,7 @@ makeBedGraphPlot <- function(coverage_df, limits, alpha, fill_palette, coverage_
     scale_y_continuous(expand = c(0,c(0.05))) +
     coord_cartesian(xlim = limits) +
     scale_color_manual(values = fill_palette) +
-    # scale_fill_manual(values = fill_palette) +
+    scale_fill_manual(values = fill_palette) +
     ylab("%C-to-U")
   return(coverage_plot)
 }

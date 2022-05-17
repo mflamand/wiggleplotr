@@ -408,7 +408,7 @@ plotCoverageBedGraph <- function(exons, cdss = NULL,tx_ids, transcript_annotatio
                          heights = c(0.75, 0.25), alpha = 1,
                          fill_palette = c("#a1dab4","#41b6c4","#225ea8"), 
                          connect_exons = TRUE, transcript_label = TRUE, return_subplots_list = FALSE,
-                         region_coords = NULL, linesize=0.5, bed_sites=NULL,no_reverse=FALSE){
+                         region_coords = NULL, linesize=0.5, bed_sites=NULL,no_reverse=FALSE,coverage_type="line"){
   
   exons<- exons[tx_ids]
   
@@ -542,7 +542,7 @@ plotCoverageBedGraph <- function(exons, cdss = NULL,tx_ids, transcript_annotatio
                                            transcript_label = transcript_label,no_reverse=no_reverse)
   }
   
-  coverage_plot = makeBedGraphPlot(coverage_df, limits, alpha, fill_palette, linesize=linesize)
+  coverage_plot = makeBedGraphPlot(coverage_df, limits, alpha, fill_palette, linesize=linesize,coverage_type)
   
   #Choose between returning plot list or a joint plot using plot_grid
   if(return_subplots_list){
